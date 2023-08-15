@@ -41,7 +41,7 @@ resource "aem_instance" "author" {
   }
 
   config {
-    port = 4502
+    http_port = 4502
     password = var.aem_password
     run_modes = ["nosamplecontent", "int"]
     jvm_opts = [
@@ -64,7 +64,7 @@ resource "aem_instance" "author" {
   }
 }
 
-resource aem_package "author_mysite_all" {
+resource "aem_package" "author_mysite_all" {
   name = "mysite-all"
   instance_id = aem_instance.aem_author.id
   file = "mysite-all-1.0.0-SNAPSHOT.zip"
