@@ -50,7 +50,7 @@ resource "aem_instance" "author" {
 resource "aem_package" "author_mysite_all" {
   name = "mysite-all"
   instance_id = aem_instance.aem_author.id
-  file = "mysite-all-1.0.0-SNAPSHOT.zip"
+  file = "mysite-all-1.0.0-SNAPSHOT.zip" # reused from lib dir or copied right before deploy (if needed) 
 }
 
 resource "aem_package" "author_mysite_content" {
