@@ -24,6 +24,11 @@ resource "aws_instance" "aem_author" {
 resource "aem_instance" "author" {
   depends_on = [aws_instance.aem_author]
 
+  config {
+    file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
+    instance_id = "local_author"
+  }
+  
   connection {
     type = "aws_ssm"
     params = {
@@ -38,29 +43,6 @@ resource "aem_instance" "author" {
       private_key: var.ssh_private_key
     }
     */
-  }
-
-  config {
-    http_port = 4502
-    password = var.aem_password
-    run_modes = ["nosamplecontent", "int"]
-    jvm_opts = [
-      "-server",
-      "-Djava.awt.headless=true",
-      "-Djava.io.tmpdir=aem/home/tmp",
-      "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:14502",
-      "-Duser.language=en",
-      "-Duser.country=US",
-      "-Duser.timezone=UTC",
-    ]
-    start_opts: []
-    secret_vars = [
-      "ACME_SECRET=value",
-    ]
-    env_vars = [
-      "ACME_VAR=value",
-    ]
-    sling_props: []
   }
 }
 
