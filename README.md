@@ -15,10 +15,30 @@ Built on top of [AEM Compose](https://github.com/wttech/aemc).
 
 ```hcl
 resource "aws_instance" "aem_author" {
+  ami = "ami-043e06a423cbdca17" // RHEL 8
+  instance_type = "m5.xlarge"
+  associate_public_ip_address = false
   // ...
 }
 
 resource "aem_instance" "author" {
+  depends_on = [aws_instance.aem_author]
+
+  connection {
+    type = "aws_ssm"
+    params = {
+      instance_id: aws_instance.aem_author.id
+    }
+    /*
+    type = "ssh"
+    params = {
+      host = aws_instance.aem_author.*.public_ip
+      port = 22
+      user: "ec2-user"
+      private_key: var.ssh_private_key
+    }
+    */
+  }
 
   config {
     port = 4502
@@ -41,21 +61,6 @@ resource "aem_instance" "author" {
       "ACME_VAR=value",
     ]
     sling_props: []
-  }
-
-  connection {
-    type = "ssh"
-    params = {
-      user: "ec2-user"
-      private_key: var.ssh_private_key
-    }
-    
-    /*
-    type = "aws_ssm"
-    params = {
-      instance_id: aws_instance.aem_author.id
-    }
-    */
   }
 }
 
