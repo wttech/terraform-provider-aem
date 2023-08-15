@@ -8,6 +8,7 @@
 # AEM Compose - Terraform Provider
 
 Allows to manage and provision Adobe Experience Manager (AEM) instances declaratively. 
+
 Built on top of [AEM Compose](https://github.com/wttech/aemc).
 
 ## Example usage
@@ -17,60 +18,65 @@ resource "aws_instance" "aem_author" {
   // ...
 }
 
-resource "aem_aws_instance" "aem_author" {
-  aws {
-    id  = aws_instance.aem.id
-    ssm = true // prefer SSM over SSH when connecting to instance to provision it
-  }
+resource "aem_instance" "author" {
 
   config {
-    instance_id = "local_author"
-    file        = "aem.yml"  // or yml inline below
-
-    inline = <<EOT
-      instance:
-        config:
-          local_author:
-            http_url: http://127.0.0.1:4502
-            user: admin
-            password: admin
-            run_modes: [ int ]
-            jvm_opts:
-              - -server
-              - -Djava.awt.headless=true
-              - -Djava.io.tmpdir=[[canonicalPath .Path "aem/home/tmp"]]
-              - -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:14502
-              - -Duser.language=en
-              - -Duser.country=US
-              - -Duser.timezone=UTC
-            start_opts: []
-            secret_vars:
-              - ACME_SECRET=value
-            env_vars:
-              - ACME_VAR=value
-            sling_props: []
-      EOT
+    port = 4502
+    password = var.aem_password
+    run_modes = ["nosamplecontent", "int"]
+    jvm_opts = [
+      "-server",
+      "-Djava.awt.headless=true",
+      "-Djava.io.tmpdir=aem/home/tmp",
+      "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:14502",
+      "-Duser.language=en",
+      "-Duser.country=US",
+      "-Duser.timezone=UTC",
+    ]
+    start_opts: []
+    secret_vars = [
+      "ACME_SECRET=value",
+    ]
+    env_vars = [
+      "ACME_VAR=value",
+    ]
+    sling_props: []
   }
 
-  provision {
-    commands = [
-      // assumes usage of standard 'changed' field returned by AEMC
-      ["pkg", "deploy", "--url", "http://github.com/../some-pkg.zip"],
-      ["osgi", "config", "save", "--pid", "xxx", "props", "a: 'b'"]
-    ]
+  connection {
+    type = "ssh"
+    params = {
+      user: "ec2-user"
+      private_key: var.ssh_private_key
+    }
+    
+    /*
+    type = "aws_ssm"
+    params = {
+      instance_id: aws_instance.aem_author.id
+    }
+    */
+  }
+}
 
-    // nicely propagates 'changed' to TF (update in place), also automatically uploads packages to AEM
-    packages = [
-      "http://github.com/../some-pkg.zip",
-      "packages/core-components.zip",
-      "packages/content-large.zip" // use checksums to avoid re-uploading big packages
-    ]
+resource aem_package "author_mysite_all" {
+  name = "mysite-all"
+  instance_id = aem_instance.aem_author.id
+  file = "mysite-all-1.0.0-SNAPSHOT.zip"
+}
 
-    // or as a last resort (without telling 'changed' to TF) 
-    shell = <<EOT
-        sh aemw pkg deploy --url "http://github.com/../some-pkg.zip"
-        sh aemw [do ant
-    EOT
+resource "aem_package" "author_mysite_content" {
+  name = "mysite-sample-content"
+  instance_id = aem_instance.aem_author.id
+  file = "mysite-sample-content-1.0.0-SNAPSHOT.zip"
+}
+
+resource "aem_osgi_config" "author_enable_crxde" {
+  name = "enable_crxde"
+  instance_id = aem_instance.aem_author.id
+  pid = "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet"
+  props = {
+    "alias": "/crx/server"
   }
 }
 ```
