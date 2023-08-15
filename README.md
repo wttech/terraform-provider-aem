@@ -1,18 +1,79 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+![AEM Compose Logo](https://github.com/wttech/terraform-aem-provider/raw/main/images/logo-with-text.png)
+[![WTT Logo](https://github.com/wttech/terraform-aem-provider/raw/main/images/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
+[![Last Release Version](https://img.shields.io/github/v/release/wttech/aemc?color=lightblue&label=Last%20Release)](https://github.com/wttech/terraform-aem-provider/tags)
+[![Ansible Galaxy](https://img.shields.io/ansible/collection/2218?label=Ansible%20Galaxy)](https://galaxy.ansible.com/wttech/aem)
+[![Apache License, Version 2.0, January 2004](https://github.com/wttech/terraform-aem-provider/raw/main/images/apache-license-badge.svg)](http://www.apache.org/licenses/)
 
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
+# AEM Compose - Terraform Provider
 
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
+Allows to manage and provision Adobe Experience Manager (AEM) instances declaratively. 
+Built on top of [AEM Compose](https://github.com/wttech/aemc).
 
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
+## Example usage
 
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
+```hcl
+resource "aws_instance" "aem_author" {
+  // ...
+}
 
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
+resource "aem_aws_instance" "aem_author" {
+  aws {
+    id  = aws_instance.aem.id
+    ssm = true // prefer SSM over SSH when connecting to instance to provision it
+  }
+
+  config {
+    instance_id = "local_author"
+    file        = "aem.yml"  // or yml inline below
+
+    inline = <<EOT
+      instance:
+        config:
+          local_author:
+            http_url: http://127.0.0.1:4502
+            user: admin
+            password: admin
+            run_modes: [ int ]
+            jvm_opts:
+              - -server
+              - -Djava.awt.headless=true
+              - -Djava.io.tmpdir=[[canonicalPath .Path "aem/home/tmp"]]
+              - -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:14502
+              - -Duser.language=en
+              - -Duser.country=US
+              - -Duser.timezone=UTC
+            start_opts: []
+            secret_vars:
+              - ACME_SECRET=value
+            env_vars:
+              - ACME_VAR=value
+            sling_props: []
+      EOT
+  }
+
+  provision {
+    commands = [
+      // assumes usage of standard 'changed' field returned by AEMC
+      ["pkg", "deploy", "--url", "http://github.com/../some-pkg.zip"],
+      ["osgi", "config", "save", "--pid", "xxx", "props", "a: 'b'"]
+    ]
+
+    // nicely propagates 'changed' to TF (update in place), also automatically uploads packages to AEM
+    packages = [
+      "http://github.com/../some-pkg.zip",
+      "packages/core-components.zip",
+      "packages/content-large.zip" // use checksums to avoid re-uploading big packages
+    ]
+
+    // or as a last resort (without telling 'changed' to TF) 
+    shell = <<EOT
+        sh aemw pkg deploy --url "http://github.com/../some-pkg.zip"
+        sh aemw [do ant
+    EOT
+  }
+}
+```
 
 ## Requirements
 
