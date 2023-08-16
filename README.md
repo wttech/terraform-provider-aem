@@ -48,20 +48,20 @@ resource "aem_instance" "author" {
 }
 
 resource "aem_package" "author_sp17" {
-  name = "sp17"
   instance_id = aem_instance.aem_author.id
+  name = "sp17"
   file = "aem-service-pkg-6.5.17-1.0.zip"
 }
 
 resource "aem_package" "author_mysite_all" {
-  name = "mysite-all"
   instance_id = aem_instance.aem_author.id
+  name = "mysite-all"
   file = "mysite-all-1.0.0-SNAPSHOT.zip" # reused from lib dir or copied right before deploy (if needed) 
 }
 
 resource "aem_osgi_config" "author_enable_crxde" {
-  name = "enable_crxde"
   instance_id = aem_instance.aem_author.id
+  name = "enable_crxde"
   pid = "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet"
   props = {
     "alias": "/crx/server"
@@ -69,8 +69,9 @@ resource "aem_osgi_config" "author_enable_crxde" {
 }
 
 resource "aem_repl_agent" "author_publish" {
-  location = "author"
+  instance_id = aem_instance.aem_author.id
   name = "publish"
+  location = "author"
   props = {
     enabled: true
     transportUri: "http://${aem_instance.publish.private_ip}/bin/receive?sling:authRequestLogin=1"
