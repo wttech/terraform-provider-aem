@@ -23,7 +23,7 @@ resource "aws_instance" "aem_author" {
 
 resource "aem_instance" "author" {
   depends_on = [aws_instance.aem_author]
-
+  
   config {
     lib_dir = "lib" # files copied once over SCP before creating instance 
     file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
@@ -47,16 +47,16 @@ resource "aem_instance" "author" {
   }
 }
 
+resource "aem_package" "author_sp17" {
+  name = "sp17"
+  instance_id = aem_instance.aem_author.id
+  file = "aem-service-pkg-6.5.17-1.0.zip"
+}
+
 resource "aem_package" "author_mysite_all" {
   name = "mysite-all"
   instance_id = aem_instance.aem_author.id
   file = "mysite-all-1.0.0-SNAPSHOT.zip" # reused from lib dir or copied right before deploy (if needed) 
-}
-
-resource "aem_package" "author_mysite_content" {
-  name = "mysite-sample-content"
-  instance_id = aem_instance.aem_author.id
-  file = "mysite-sample-content-1.0.0-SNAPSHOT.zip"
 }
 
 resource "aem_osgi_config" "author_enable_crxde" {
@@ -67,6 +67,20 @@ resource "aem_osgi_config" "author_enable_crxde" {
     "alias": "/crx/server"
   }
 }
+
+resource "aem_repl_agent" "author_publish" {
+  location = "author"
+  name = "publish"
+  props = {
+    enabled: true
+    transportUri: "http://${aem_instance.publish.private_ip}/bin/receive?sling:authRequestLogin=1"
+    transportUser: "admin"
+    transportPassword: "${var.aem_password}"
+    userId: "admin"
+  }
+}
+
+// ... and similar config for publish instance"
 ```
 
 ## Requirements
