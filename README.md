@@ -40,8 +40,8 @@ resource "aem_instance" "author" {
     params = {
       host = aws_instance.aem_author.*.public_ip
       port = 22
-      user: "ec2-user"
-      private_key: var.ssh_private_key
+      user = "ec2-user"
+      private_key = var.ssh_private_key
     }
     */
   }
@@ -64,7 +64,7 @@ resource "aem_osgi_config" "author_enable_crxde" {
   name = "enable_crxde"
   pid = "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet"
   props = {
-    "alias": "/crx/server"
+    alias = "/crx/server"
   }
 }
 
@@ -73,11 +73,11 @@ resource "aem_repl_agent" "author_publish" {
   name = "publish"
   location = "author"
   props = {
-    enabled: true
-    transportUri: "http://${aem_instance.publish.private_ip}/bin/receive?sling:authRequestLogin=1"
-    transportUser: "admin"
-    transportPassword: "${var.aem_password}"
-    userId: "admin"
+    enabled = true
+    transportUri = "http://${aem_instance.publish.private_ip}/bin/receive?sling:authRequestLogin=1"
+    transportUser = "admin"
+    transportPassword = "${var.aem_password}"
+    userId = "admin"
   }
 }
 
