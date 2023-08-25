@@ -1,4 +1,4 @@
-module github.com/hashicorp/terraform-provider-scaffolding-framework
+module github.com/wttech/terraform-provider-aem
 
 go 1.19
 

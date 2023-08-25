@@ -1,18 +1,88 @@
-# Terraform Provider Scaffolding (Terraform Plugin Framework)
+![AEM Compose Logo](https://github.com/wttech/terraform-provider-aem/raw/main/images/logo-with-text.png)
+[![WTT Logo](https://github.com/wttech/terraform-provider-aem/raw/main/images/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
 
-_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
+[![Last Release Version](https://img.shields.io/github/v/release/wttech/aemc?color=lightblue&label=Last%20Release)](https://github.com/wttech/terraform-provider-aem/tags)
+[![Ansible Galaxy](https://img.shields.io/ansible/collection/2218?label=Ansible%20Galaxy)](https://galaxy.ansible.com/wttech/aem)
+[![Apache License, Version 2.0, January 2004](https://github.com/wttech/terraform-provider-aem/raw/main/images/apache-license-badge.svg)](http://www.apache.org/licenses/)
 
-This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
+# AEM Compose - Terraform Provider
 
-- A resource and a data source (`internal/provider/`),
-- Examples (`examples/`) and generated documentation (`docs/`),
-- Miscellaneous meta files.
+Allows to manage and provision Adobe Experience Manager (AEM) instances declaratively. 
 
-These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
+Built on top of [AEM Compose](https://github.com/wttech/aemc).
 
-Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
+## Example usage
 
-Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
+```hcl
+resource "aws_instance" "aem_author" {
+  ami = "ami-043e06a423cbdca17" // RHEL 8
+  instance_type = "m5.xlarge"
+  associate_public_ip_address = false
+  // ...
+}
+
+resource "aem_instance" "author" {
+  depends_on = [aws_instance.aem_author]
+  
+  config {
+    lib_dir = "lib" # files copied once over SCP before creating instance 
+    file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
+    instance_id = "local_author"
+  }
+  
+  connection {
+    type = "aws_ssm"
+    params = {
+      instance_id: aws_instance.aem_author.id
+    }
+    /*
+    type = "ssh"
+    params = {
+      host = aws_instance.aem_author.*.public_ip
+      port = 22
+      user = "ec2-user"
+      private_key = var.ssh_private_key
+    }
+    */
+  }
+}
+
+resource "aem_package" "author_sp17" {
+  instance_id = aem_instance.aem_author.id
+  name = "sp17"
+  file = "aem-service-pkg-6.5.17-1.0.zip"
+}
+
+resource "aem_package" "author_mysite_all" {
+  instance_id = aem_instance.aem_author.id
+  name = "mysite-all"
+  file = "mysite-all-1.0.0-SNAPSHOT.zip" # reused from lib dir or copied right before deploy (if needed) 
+}
+
+resource "aem_osgi_config" "author_enable_crxde" {
+  instance_id = aem_instance.aem_author.id
+  name = "enable_crxde"
+  pid = "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet"
+  props = {
+    alias = "/crx/server"
+  }
+}
+
+resource "aem_repl_agent" "author_publish" {
+  instance_id = aem_instance.aem_author.id
+  name = "publish"
+  location = "author"
+  props = {
+    enabled = true
+    transportUri = "http://${aem_instance.publish.private_ip}/bin/receive?sling:authRequestLogin=1"
+    transportUser = "admin"
+    transportPassword = "${var.aem_password}"
+    userId = "admin"
+  }
+}
+
+// ... and similar config for publish instance"
+```
 
 ## Requirements
 
