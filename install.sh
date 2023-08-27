@@ -1,7 +1,7 @@
 #!/bin/bash
 
-TF_RC_FILE="/Users/$(whoami)/.terraformrc"
 GO_BIN_DIR="/Users/$(whoami)/go/bin"
+TF_RC_FILE="$(pwd)/dev_overrides.tfrc"
 
 # Download all providers and pretend that they are developed locally
 # See: https://github.com/hashicorp/terraform/issues/27459#issuecomment-1382126220
@@ -15,13 +15,13 @@ then
   cp /tmp/terraform-provider-aws_v5.14.0_x5 "$GO_BIN_DIR/terraform-provider-aws"
 fi
 
-echo "Setting up dev-overrides in Terraform CLI configuration file: $TF_RC_FILE"
+echo "Setting up dev-overrides in custom Terraform CLI configuration file: $TF_RC_FILE"
 cat <<EOT > "$TF_RC_FILE"
 provider_installation {
 
   dev_overrides {
-      "registry.terraform.io/wttech/aem" = "/Users/$(whoami)/go/bin"
-      "registry.terraform.io/hashicorp/aws" = "/Users/$(whoami)/go/bin"
+      "registry.terraform.io/wttech/aem" = "$GO_BIN_DIR"
+      "registry.terraform.io/hashicorp/aws" = "$GO_BIN_DIR"
   }
 
   # For all other providers, install them directly from their origin provider
@@ -33,3 +33,13 @@ EOT
 
 echo "Building and installing Terraform AEM provider"
 go install .
+
+echo ""
+
+echo "To use the Terraform AEM provider, add the following to ZSH RC:"
+echo "export TF_CLI_CONFIG_FILE=$TF_RC_FILE >> ~/.zshrc"
+
+echo ""
+
+echo "Alternatively, just run following command in shell right before running Terraform commands like 'plan', 'apply', etc.:"
+echo "export TF_CLI_CONFIG_FILE=$TF_RC_FILE"
