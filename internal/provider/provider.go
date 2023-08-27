@@ -2,16 +2,15 @@ package provider
 
 import (
 	"context"
-	"github.com/hashicorp/terraform-plugin-framework/types"
-	"net/http"
-
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/wttech/terraform-provider-aem/internal/client"
 )
 
-// Ensure ScaffoldingProvider satisfies various provider interfaces.
+// Ensure AEMProvider satisfies various provider interfaces.
 var _ provider.Provider = &AEMProvider{}
 
 // AEMProvider defines the provider implementation.
@@ -56,9 +55,9 @@ func (p *AEMProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	// if data.Endpoint.IsNull() { /* ... */ }
 
 	// Example client configuration for data sources and resources
-	client := http.DefaultClient
-	resp.DataSourceData = client
-	resp.ResourceData = client
+	provisioner := client.ClientDefault
+	resp.DataSourceData = provisioner
+	resp.ResourceData = provisioner
 }
 
 func (p *AEMProvider) Resources(ctx context.Context) []func() resource.Resource {
@@ -76,8 +75,6 @@ func (p *AEMProvider) DataSources(ctx context.Context) []func() datasource.DataS
 
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &AEMProvider{
-			version: version,
-		}
+		return &AEMProvider{version: version}
 	}
 }
