@@ -36,3 +36,5 @@ website/vendor
 
 # Terraform CLI config
 dev_overrides.tfrc
+
+*.pem
