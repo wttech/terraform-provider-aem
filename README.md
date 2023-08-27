@@ -1,9 +1,7 @@
-![AEM Compose Logo](https://github.com/wttech/terraform-provider-aem/raw/main/images/logo-with-text.png)
-[![WTT Logo](https://github.com/wttech/terraform-provider-aem/raw/main/images/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
+![AEM Compose Logo](docs/logo-with-text.png)
+[![WTT Logo](docs/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
 
-[![Last Release Version](https://img.shields.io/github/v/release/wttech/aemc?color=lightblue&label=Last%20Release)](https://github.com/wttech/terraform-provider-aem/tags)
-[![Ansible Galaxy](https://img.shields.io/ansible/collection/2218?label=Ansible%20Galaxy)](https://galaxy.ansible.com/wttech/aem)
-[![Apache License, Version 2.0, January 2004](https://github.com/wttech/terraform-provider-aem/raw/main/images/apache-license-badge.svg)](http://www.apache.org/licenses/)
+[![Apache License, Version 2.0, January 2004](docs/apache-license-badge.svg)](http://www.apache.org/licenses/)
 
 # AEM Compose - Terraform Provider
 
