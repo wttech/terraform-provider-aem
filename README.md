@@ -129,6 +129,12 @@ In order to run the full suite of Acceptance tests, run `make testacc`.
 
 *Note:* Acceptance tests create real resources, and often cost money to run.
 
+## Testing the Provider using examples
+
+1. Run command `sh install.sh`
+2. Run suggested command for setting up environment variables
+3. Navigate to one of the directory under `examples` and run `terraform plan` or `terraform apply` 
+
 ```shell
 make testacc
 ```
