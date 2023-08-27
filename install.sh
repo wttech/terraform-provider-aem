@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cat <<EOT >> ~/.terraformrc
+cat <<EOT > ~/.terraformrc
 provider_installation {
 
   dev_overrides {
