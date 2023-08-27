@@ -1,3 +1,3 @@
-provider "scaffolding" {
+provider "aem" {
   # example configuration here
 }
