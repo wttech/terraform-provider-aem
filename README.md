@@ -22,16 +22,18 @@ resource "aws_instance" "aem_author" {
 resource "aem_instance" "author" {
   depends_on = [aws_instance.aem_author]
   
-  config {
+  compose {
+    root_dir = "/mnt/aemc"
+    version = "1.4.1"
     lib_dir = "lib" # files copied once over SCP before creating instance 
-    file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
+    config_file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
     instance_id = "local_author"
   }
   
-  connection {
+  client {
     type = "aws_ssm"
     params = {
-      instance_id: aws_instance.aem_author.id
+      instance_id = aws_instance.aem_author.id
     }
     /*
     type = "ssh"

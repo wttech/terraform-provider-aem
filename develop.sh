@@ -1,5 +1,8 @@
 #!/bin/bash
 
+RED='\033[0;31m'
+NC='\033[0m'
+
 TF_DIR=$1
 if [ -z "$TF_DIR" ]
 then
@@ -12,7 +15,7 @@ go install .
 BUILD_STATUS="$?"
 if [ "$BUILD_STATUS" -ne 0 ]
 then
-  echo "Build error (exit code $BUILD_STATUS)"
+  echo "${RED}Build error (exit code $BUILD_STATUS)${NC}"
   exit 1
 fi
 

@@ -54,16 +54,14 @@ resource "aem_instance" "author" {
       host = aws_instance.aem_author.public_ip
       port = 22
       user = "ec2-user"
-      private_key = local.ssh_private_key // TODO hide it
+      private_key = local.ssh_private_key // TODO hide it in TF console outputs
     }
   }
   compose {
+    data_dir = "/data/aemc"
     version = "1.4.1"
     lib_dir = "lib"
     config_file = "aem.yml"
     instance_id = "local_author"
-  }
-  machine {
-    data_dir = "/data/aemc"
   }
 }

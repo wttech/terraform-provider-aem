@@ -31,10 +31,8 @@ type InstanceResourceModel struct {
 		Type     types.String `tfsdk:"type"`
 		Settings types.Map    `tfsdk:"settings"`
 	} `tfsdk:"client"`
-	Machine struct {
-		DataDir types.String `tfsdk:"data_dir"`
-	} `tfsdk:"machine"`
 	Compose struct {
+		DataDir    types.String `tfsdk:"data_dir"`
 		Version    types.String `tfsdk:"version"`
 		ConfigFile types.String `tfsdk:"config_file"`
 		LibDir     types.String `tfsdk:"lib_dir"`
@@ -59,39 +57,35 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					},
 				},
 			},
-			"machine": schema.SingleNestedBlock{
-				Attributes: map[string]schema.Attribute{
-					"data_dir": schema.StringAttribute{
-						MarkdownDescription: "Root path which AEM instance(s) will be stored",
-						Computed:            true,
-						Optional:            true,
-						Default:             stringdefault.StaticString("/data/aemc"),
-					},
-				},
-			},
 			"compose": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
+					"data_dir": schema.StringAttribute{
+						MarkdownDescription: "Remote path in which AEM Compose data will be stored",
+						Computed:            true,
+						Optional:            true,
+						Default:             stringdefault.StaticString("/mnt/aemc"),
+					},
 					"version": schema.StringAttribute{
-						MarkdownDescription: "Version of AEM Compose CLI to use",
+						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("1.4.1"),
 					},
-					"instance_id": schema.StringAttribute{
-						MarkdownDescription: "ID of the AEM instance to use (one of the instances defined in the configuration file)",
-						Optional:            true,
-					},
 					"config_file": schema.StringAttribute{
-						MarkdownDescription: "Path to the AEM configuration file",
+						MarkdownDescription: "Local path to the AEM configuration file",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("aem.yml"),
 					},
 					"lib_dir": schema.StringAttribute{
-						MarkdownDescription: "Path to the AEM library directory",
+						MarkdownDescription: "Local path to directory from which AEM library files will be copied to the remote AEM machine",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("lib"),
+					},
+					"instance_id": schema.StringAttribute{
+						MarkdownDescription: "ID of the AEM instance to use (one of the instances defined in the configuration file)",
+						Optional:            true,
 					},
 				},
 			},
@@ -144,7 +138,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	tflog.Trace(ctx, "creating AEM instance resource")
 
-	if err := conn.CopyFile(data.Compose.ConfigFile.String(), fmt.Sprintf("%s/aem/default/etc/aem.yml", data.Machine.DataDir.String())); err != nil {
+	if err := conn.CopyFile(data.Compose.ConfigFile.String(), fmt.Sprintf("%s/aem/default/etc/aem.yml", data.Compose.DataDir.String())); err != nil {
 		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to copy AEM configuration file, got error: %s", err))
 		return
 	}
