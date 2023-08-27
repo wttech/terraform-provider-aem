@@ -38,3 +38,5 @@ website/vendor
 dev_overrides.tfrc
 
 *.pem
+*.cer
+*.der

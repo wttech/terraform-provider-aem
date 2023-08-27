@@ -22,7 +22,7 @@ locals {
   host = "aem_single"
 
   ssh_user = "ec2-user"
-  ssh_private_key = file("ec2-user.pem") // TODO connect it with AWS key pair
+  ssh_private_key = file("ec2-key.cer")
 
   tags = {
     Workspace = "aemc"
@@ -48,23 +48,19 @@ output "instance_ip" {
 resource "aem_instance" "author" {
   depends_on = [aws_instance.aem_author]
 
-  /*
   config {
-    lib_dir = "lib" # files copied once over SCP before creating instance
-    file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
-    instance_id = "local_author"
+#    lib_dir = "lib" # files copied once over SCP before creating instance
+#    file = "aem.yml" # https://github.com/wttech/aemc/blob/0ca8bdeb17be0457ce4bea43621d8abe08948431/pkg/project/app_classic/aem/default/etc/aem.yml
+#    instance_id = "local_author"
   }
-  */
 
-  /*
-  connection {
-    type = "ssh"
-    params = {
-      host = aws_instance.aem_author.*.public_ip
-      port = 22
-      user = "ec2-user"
-      private_key = local.ssh_private_key
-    }
+  client {
+#    type = "ssh"
+#    params = {
+#      host = aws_instance.aem_author.*.public_ip
+#      port = 22
+#      user = "ec2-user"
+#      private_key = local.ssh_private_key
+#    }
   }
-  */
 }
