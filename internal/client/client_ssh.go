@@ -3,6 +3,8 @@ package client
 import (
 	"fmt"
 	"github.com/melbahja/goph"
+	"github.com/spf13/cast"
+	"golang.org/x/crypto/ssh"
 )
 
 type SSHClient struct {
@@ -20,7 +22,15 @@ func (s *SSHClient) Connect() error {
 	if err != nil {
 		return fmt.Errorf("SSH: cannot get auth using private key '%s': %w", s.privateKeyFile, err)
 	}
-	client, err := goph.New(s.user, s.host, auth)
+	// TODO loop until establishment of connection
+	client, err := goph.NewConn(&goph.Config{
+		User:     s.user,
+		Addr:     s.host,
+		Port:     cast.ToUint(s.port),
+		Auth:     auth,
+		Timeout:  goph.DefaultTimeout,
+		Callback: ssh.InsecureIgnoreHostKey(), // TODO make it secure by default
+	})
 	if err != nil {
 		return fmt.Errorf("SSH: cannot connect to host '%s': %w", s.host, err)
 	}
@@ -29,6 +39,9 @@ func (s *SSHClient) Connect() error {
 }
 
 func (s *SSHClient) Disconnect() error {
+	if s.client == nil {
+		return nil
+	}
 	if err := s.client.Close(); err != nil {
 		return fmt.Errorf("SSH: cannot disconnect from host '%s': %w", s.host, err)
 	}

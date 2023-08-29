@@ -10,9 +10,18 @@ TF_RC_FILE="$(pwd)/dev_overrides.tfrc"
 if [ ! -f "$GO_BIN_DIR/terraform-provider-aws" ]
 then
   echo "Setting up Terraform AWS provider as dev-override: $GO_BIN_DIR/terraform-provider-aws"
-  wget https://releases.hashicorp.com/terraform-provider-aws/5.14.0/terraform-provider-aws_5.14.0_darwin_arm64.zip -O /tmp/terraform-provider-aws.zip
-  unzip /tmp/terraform-provider-aws.zip -d "$GO_BIN_DIR"
+  wget https://releases.hashicorp.com/terraform-provider-aws/5.14.0/terraform-provider-aws_5.14.0_darwin_arm64.zip -c -O /tmp/terraform-provider-aws.zip
+  unzip -o /tmp/terraform-provider-aws.zip -d "$GO_BIN_DIR"
   cp /tmp/terraform-provider-aws_v5.14.0_x5 "$GO_BIN_DIR/terraform-provider-aws"
+fi
+
+# TLS provider
+if [ ! -f "$GO_BIN_DIR/terraform-provider-tls" ]
+then
+  echo "Setting up Terraform TLS provider as dev-override: $GO_BIN_DIR/terraform-provider-tls"
+  wget https://releases.hashicorp.com/terraform-provider-tls/4.0.4/terraform-provider-tls_4.0.4_darwin_arm64.zip -c -O /tmp/terraform-provider-tls.zip
+  unzip -o /tmp/terraform-provider-tls.zip -d "$GO_BIN_DIR"
+  cp /tmp/terraform-provider-tls_v4.0.4_x5 "$GO_BIN_DIR/terraform-provider-tls"
 fi
 
 echo "Setting up dev-overrides in custom Terraform CLI configuration file: $TF_RC_FILE"
@@ -22,6 +31,7 @@ provider_installation {
   dev_overrides {
       "registry.terraform.io/wttech/aem" = "$GO_BIN_DIR"
       "registry.terraform.io/hashicorp/aws" = "$GO_BIN_DIR"
+      "registry.terraform.io/hashicorp/tls" = "$GO_BIN_DIR"
   }
 
   # For all other providers, install them directly from their origin provider

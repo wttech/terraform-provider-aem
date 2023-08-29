@@ -5,17 +5,6 @@ resource "aws_instance" "aem_single" {
   tags                 = local.tags
 }
 
-data "tls_public_key" "main" {
-  private_key_pem = file("ec2-key.cer")
-}
-
-resource "aws_key_pair" "main" {
-  key_name   = local.workspace
-  public_key = data.tls_public_key.main.public_key_openssh
-  tags       = local.tags
-}
-
-
 resource "aws_iam_instance_profile" "ssm" {
   name = "${local.workspace}_ssm_ec2"
   role = aws_iam_role.ssm.name

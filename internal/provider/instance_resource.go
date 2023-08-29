@@ -129,7 +129,12 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	tflog.Trace(ctx, "creating AEM instance resource")
 
 	tflog.Trace(ctx, "connecting to AEM instance machine")
-	cl, err := r.clientManager.Make(data.Client.Type.ValueString(), map[string]string{})
+
+	typeName := data.Client.Type.ValueString()
+	var settings map[string]string
+	data.Client.Settings.ElementsAs(ctx, &settings, true)
+
+	cl, err := r.clientManager.Make(typeName, settings)
 	if err != nil {
 		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to determine AEM instance client, got error: %s", err))
 		return
