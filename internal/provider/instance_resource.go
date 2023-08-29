@@ -129,22 +129,27 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	tflog.Trace(ctx, "creating AEM instance resource")
 
 	tflog.Trace(ctx, "connecting to AEM instance machine")
-	conn, err := r.clientManager.Make(data.Client.Type.String(), map[string]string{})
+	cl, err := r.clientManager.Make(data.Client.Type.String(), map[string]string{})
 	if err != nil {
 		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to connect AEM instance machine, got error: %s", err))
 		return
 	}
 	tflog.Trace(ctx, "connected to AEM instance machine")
-	defer conn.Disconnect()
+	defer func(client client.Client) {
+		err := client.Disconnect()
+		if err != nil {
+			resp.Diagnostics.AddWarning("AEM instance error", fmt.Sprintf("Unable to disconnect AEM instance machine, got error: %s", err))
+		}
+	}(cl)
 
 	tflog.Trace(ctx, "creating AEM instance resource")
 
-	if err := conn.CopyFile(data.Compose.ConfigFile.String(), fmt.Sprintf("%s/aem/default/etc/aem.yml", data.Compose.DataDir.String())); err != nil {
+	if err := cl.CopyFile(data.Compose.ConfigFile.String(), fmt.Sprintf("%s/aem/default/etc/aem.yml", data.Compose.DataDir.String())); err != nil {
 		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to copy AEM configuration file, got error: %s", err))
 		return
 	}
 	tflog.Trace(ctx, "launching AEM instance(s)")
-	yml, err := conn.Invoke([]string{"sh", "aemw", "instance", "launch"}, []byte{})
+	yml, err := cl.Run("sh aemw instance launch")
 	if err != nil {
 		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to launch AEM instance, got error: %s", err))
 		return
