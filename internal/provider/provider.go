@@ -55,22 +55,17 @@ func (p *AEMProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	// if data.Endpoint.IsNull() { /* ... */ }
 
 	// Example client configuration for data sources and resources
-	provisioner := client.ClientDefault
-	resp.DataSourceData = provisioner
-	resp.ResourceData = provisioner
+	clientManager := client.ClientManagerDefault
+	resp.DataSourceData = clientManager
+	resp.ResourceData = clientManager
 }
 
 func (p *AEMProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{
-		NewInstanceResource,
-		NewExampleResource,
-	}
+	return []func() resource.Resource{NewInstanceResource}
 }
 
 func (p *AEMProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		NewExampleDataSource,
-	}
+	return []func() datasource.DataSource{}
 }
 
 func New(version string) func() provider.Provider {

@@ -54,7 +54,7 @@ resource "aem_instance" "author" {
       host        = aws_instance.aem_author.public_ip
       port        = 22
       user        = "ec2-user"
-      private_key = local.ssh_private_key // TODO hide it in TF console outputs
+     // private_key = local.ssh_private_key // TODO hide it in TF console outputs
     }
   }
   compose {

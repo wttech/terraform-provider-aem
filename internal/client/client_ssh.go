@@ -1,8 +1,6 @@
 package client
 
-import (
-	"io"
-)
+import "io"
 
 type SSHClient struct {
 	Host       string
@@ -11,17 +9,32 @@ type SSHClient struct {
 	Port       int
 }
 
-func (c SSHClient) Connect() error {
+func (S SSHClient) Connect() error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (c SSHClient) Invoke(args []string, input io.Reader) (io.ReadCloser, error) {
+func (S SSHClient) Disconnect() error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (c SSHClient) Disconnect() error {
+func (S SSHClient) Invoke(args []string, input []byte) ([]byte, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (S SSHClient) Call(args []string, input io.ReadCloser) (io.ReadCloser, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (S SSHClient) CopyFile(localPath string, remotePath string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (S SSHClient) WriteFile(file io.ReadCloser, remotePath string) error {
 	//TODO implement me
 	panic("implement me")
 }

@@ -13,16 +13,17 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &ExampleResource{}
-var _ resource.ResourceWithImportState = &ExampleResource{}
+var _ resource.Resource = &InstanceResource{}
+var _ resource.ResourceWithImportState = &InstanceResource{}
 
 func NewInstanceResource() resource.Resource {
 	return &InstanceResource{}
 }
 
 // InstanceResource defines the resource implementation.
+
 type InstanceResource struct {
-	client *client.Client
+	clientManager *client.ClientManager
 }
 
 // InstanceResourceModel describes the resource data model.
@@ -103,7 +104,7 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 		return
 	}
 
-	clientManager, ok := req.ProviderData.(*client.Client)
+	clientManager, ok := req.ProviderData.(*client.ClientManager)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
@@ -113,7 +114,7 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 		return
 	}
 
-	r.client = clientManager
+	r.clientManager = clientManager
 }
 
 func (r *InstanceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -128,7 +129,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	tflog.Trace(ctx, "creating AEM instance resource")
 
 	tflog.Trace(ctx, "connecting to AEM instance machine")
-	conn, err := r.client.Connect(data.Client.Type.String(), map[string]string{})
+	conn, err := r.clientManager.Make(data.Client.Type.String(), map[string]string{})
 	if err != nil {
 		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to connect AEM instance machine, got error: %s", err))
 		return

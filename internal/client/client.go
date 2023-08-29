@@ -1,35 +1,39 @@
 package client
 
 import (
+	"fmt"
+	"github.com/spf13/cast"
 	"io"
 )
 
-type Client struct{}
+type ClientManager struct{}
 
-var ClientDefault = &Client{}
+var ClientManagerDefault = &ClientManager{}
 
-type ClientConnection struct{}
-
-func (c Client) Connect(typeName string, settings map[string]string) (*ClientConnection, error) {
-	return &ClientConnection{}, nil
+type Client interface {
+	Connect() error
+	Disconnect() error
+	Invoke(args []string, input []byte) ([]byte, error)
+	Call(args []string, input io.ReadCloser) (io.ReadCloser, error)
+	CopyFile(localPath string, remotePath string) error
+	WriteFile(file io.ReadCloser, remotePath string) error
 }
 
-func (c *ClientConnection) Disconnect() error {
-	return nil
-}
-
-func (c *ClientConnection) Invoke(args []string, input []byte) ([]byte, error) {
-	return nil, nil
-}
-
-func (c *ClientConnection) Call(args []string, input io.ReadCloser) (io.ReadCloser, error) {
-	return nil, nil
-}
-
-func (c *ClientConnection) CopyFile(localPath string, remotePath string) error {
-	return nil
-}
-
-func (c *ClientConnection) WriteFile(file io.ReadCloser, remotePath string) error {
-	return nil
+func (c ClientManager) Make(typeName string, settings map[string]string) (Client, error) {
+	switch typeName {
+	case "ssh":
+		return &SSHClient{
+			Host:       settings["host"],
+			User:       settings["user"],
+			PrivateKey: []byte(settings["private_key"]),
+			Port:       cast.ToInt(settings["port"]),
+		}, nil
+	case "aws-ssm":
+		return &AWSSSMClient{
+			InstanceID: settings["instance_id"],
+			Region:     settings["region"],
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown AEM client type: %s", typeName)
+	}
 }
