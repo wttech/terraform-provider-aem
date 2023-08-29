@@ -40,3 +40,5 @@ dev_overrides.tfrc
 *.pem
 *.cer
 *.der
+
+**/aem/home/

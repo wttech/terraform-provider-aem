@@ -5,6 +5,7 @@ import (
 	"github.com/melbahja/goph"
 	"github.com/spf13/cast"
 	"golang.org/x/crypto/ssh"
+	"path/filepath"
 )
 
 type SSHClient struct {
@@ -51,15 +52,21 @@ func (s *SSHClient) Disconnect() error {
 func (s *SSHClient) Run(cmd string) ([]byte, error) {
 	out, err := s.client.Run(cmd)
 	if err != nil {
+		if len(out) > 0 { // TODO rethink error handling
+			return nil, fmt.Errorf("SSH: cannot run command '%s' on host '%s': %w\n\n%s", cmd, s.host, err, string(out))
+		}
 		return nil, fmt.Errorf("SSH: cannot run command '%s' on host '%s': %w", cmd, s.host, err)
 	}
 	return out, nil
 }
 
 func (s *SSHClient) CopyFile(localPath string, remotePath string) error {
-	err := s.client.Upload(localPath, remotePath)
-	if err != nil {
-		return fmt.Errorf("SSH: cannot local file '%s' to remote path '%s' on host '%s': %w", localPath, remotePath, s.host, err)
+	dir := filepath.Dir(remotePath)
+	if _, err := s.client.Run(fmt.Sprintf("mkdir -p %s", dir)); err != nil {
+		return fmt.Errorf("SSH: cannot ensure directory '%s' before copying file: %w", dir, err)
+	}
+	if err := s.client.Upload(localPath, remotePath); err != nil {
+		return fmt.Errorf("SSH: cannot copy local file '%s' to remote path '%s' on host '%s': %w", localPath, remotePath, s.host, err)
 	}
 	return nil
 }

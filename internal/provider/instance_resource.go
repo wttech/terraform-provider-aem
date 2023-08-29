@@ -76,13 +76,13 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Local path to the AEM configuration file",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("aem.yml"),
+						Default:             stringdefault.StaticString("aem/default/etc/aem.yml"),
 					},
 					"lib_dir": schema.StringAttribute{
 						MarkdownDescription: "Local path to directory from which AEM library files will be copied to the remote AEM machine",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("lib"),
+						Default:             stringdefault.StaticString("aem/home/lib"),
 					},
 					"instance_id": schema.StringAttribute{
 						MarkdownDescription: "ID of the AEM instance to use (one of the instances defined in the configuration file)",
@@ -126,9 +126,9 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	tflog.Trace(ctx, "creating AEM instance resource")
+	tflog.Info(ctx, "Creating AEM instance resource")
 
-	tflog.Trace(ctx, "connecting to AEM instance machine")
+	tflog.Info(ctx, "Connecting to AEM instance machine")
 
 	typeName := data.Client.Type.ValueString()
 	var settings map[string]string
@@ -136,36 +136,65 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	cl, err := r.clientManager.Make(typeName, settings)
 	if err != nil {
-		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to determine AEM instance client, got error: %s", err))
+		resp.Diagnostics.AddError("Unable to determine AEM instance client", fmt.Sprintf("%s", err))
 		return
 	}
 	if err := cl.Connect(); err != nil {
-		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to connect to AEM instance machine, got error: %s", err))
+		resp.Diagnostics.AddError("Unable to connect to AEM instance machine", fmt.Sprintf("%s", err))
 		return
 	}
-	tflog.Trace(ctx, "connected to AEM instance machine")
+	tflog.Info(ctx, "Connected to AEM instance machine")
 	defer func(client client.Client) {
 		err := client.Disconnect()
 		if err != nil {
-			resp.Diagnostics.AddWarning("AEM instance error", fmt.Sprintf("Unable to disconnect AEM instance machine, got error: %s", err))
+			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance machine", fmt.Sprintf("%s", err))
 		}
 	}(cl)
 
-	tflog.Trace(ctx, "creating AEM instance resource")
+	tflog.Info(ctx, "Creating AEM instance resource")
 
-	if err := cl.CopyFile(data.Compose.ConfigFile.String(), fmt.Sprintf("%s/aem/default/etc/aem.yml", data.Compose.DataDir.String())); err != nil {
-		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to copy AEM configuration file, got error: %s", err))
+	dataDir := data.Compose.DataDir.ValueString()
+
+	if _, err := cl.Run(fmt.Sprintf("rm -fr %s", dataDir)); err != nil {
+		resp.Diagnostics.AddError("Cannot clean up AEM data directory", fmt.Sprintf("%s", err))
 		return
 	}
-	tflog.Trace(ctx, "launching AEM instance(s)")
-	yml, err := cl.Run("sh aemw instance launch")
+
+	if _, err := cl.Run(fmt.Sprintf("mkdir -p %s", dataDir)); err != nil {
+		resp.Diagnostics.AddError("Cannot create AEM data directory", fmt.Sprintf("%s", err))
+		return
+	}
+
+	// TODO chown data dir to ssh user or aem user (create him maybe)
+	// TODO run with context and env vars for setting AEMC version
+
+	out, err := cl.Run(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", dataDir))
+	tflog.Info(ctx, string(out))
 	if err != nil {
-		resp.Diagnostics.AddError("AEM instance error", fmt.Sprintf("Unable to launch AEM instance, got error: %s", err))
+		resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
 	}
 
-	tflog.Trace(ctx, "launched AEM instance(s)")
-	tflog.Trace(ctx, string(yml)) // TODO parse output; add it as data to the state; consider checking 'changed' flag from AEMCLI
+	configFile := data.Compose.ConfigFile.ValueString()
+	if err := cl.CopyFile(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", dataDir)); err != nil {
+		resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
+		return
+	}
+
+	// TODO copy lib dir
+
+	tflog.Info(ctx, "Launching AEM instance(s)")
+
+	// TODO register systemd service instead and start it
+	ymlBytes, err := cl.Run(fmt.Sprintf("cd %s && sh aemw instance launch --output-format yml", dataDir))
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
+		return
+	}
+	yml := string(ymlBytes) // TODO parse it and add to state
+
+	tflog.Info(ctx, "Launched AEM instance(s)")
+	tflog.Info(ctx, string(yml)) // TODO parse output; add it as data to the state; consider checking 'changed' flag from AEMCLI
 
 	// For the purposes of this example code, hardcoding a response value to
 	// save into the Terraform state.
@@ -173,7 +202,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	// Write logs using the tflog package
 	// Documentation: https://terraform.io/plugin/log
-	tflog.Trace(ctx, "created AEM instance resource")
+	tflog.Info(ctx, "Created AEM instance resource")
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
