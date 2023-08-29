@@ -30,7 +30,6 @@ func (c ClientManager) Make(typeName string, settings map[string]string) (Client
 			InstanceID: settings["instance_id"],
 			Region:     settings["region"],
 		}, nil
-	default:
-		return nil, fmt.Errorf("unknown AEM client type: %s", typeName)
 	}
+	return nil, fmt.Errorf("unknown AEM client type: %s", typeName)
 }

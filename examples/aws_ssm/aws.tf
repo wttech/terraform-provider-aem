@@ -1,4 +1,4 @@
-resource "aws_instance" "aem_author" {
+resource "aws_instance" "aem_single" {
   ami                  = "ami-043e06a423cbdca17" // RHEL 8
   instance_type        = "m5.xlarge"
   iam_instance_profile = aws_iam_instance_profile.ssm.name
@@ -43,5 +43,5 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 }
 
 output "instance_ip" {
-  value = aws_instance.aem_author.public_ip
+  value = aws_instance.aem_single.public_ip
 }
