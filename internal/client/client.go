@@ -16,6 +16,8 @@ type Client interface {
 	CopyFile(localPath string, remotePath string) error
 }
 
+// TODO wrap into Connection to put there generic methods like Copy with overwrite, lazy, etc
+
 func (c ClientManager) Make(typeName string, settings map[string]string) (Client, error) {
 	switch typeName {
 	case "ssh":

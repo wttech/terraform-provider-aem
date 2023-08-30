@@ -10,11 +10,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
+	"os"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &InstanceResource{}
 var _ resource.ResourceWithImportState = &InstanceResource{}
+
+type InstanceContext ClientContext[InstanceResourceModel]
+
+func (ic InstanceContext) DataDir() string {
+	return ic.data.Compose.DataDir.ValueString()
+}
 
 func NewInstanceResource() resource.Resource {
 	return &InstanceResource{}
@@ -143,6 +150,9 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to connect to AEM instance machine", fmt.Sprintf("%s", err))
 		return
 	}
+
+	ic := InstanceContext{data, ctx, req, resp, cl}
+
 	tflog.Info(ctx, "Connected to AEM instance machine")
 	defer func(client client.Client) {
 		err := client.Disconnect()
@@ -153,48 +163,21 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	tflog.Info(ctx, "Creating AEM instance resource")
 
-	dataDir := data.Compose.DataDir.ValueString()
-
-	if _, err := cl.Run(fmt.Sprintf("rm -fr %s", dataDir)); err != nil {
-		resp.Diagnostics.AddError("Cannot clean up AEM data directory", fmt.Sprintf("%s", err))
+	if !r.prepareDataDir(ic) {
 		return
 	}
-
-	if _, err := cl.Run(fmt.Sprintf("mkdir -p %s", dataDir)); err != nil {
-		resp.Diagnostics.AddError("Cannot create AEM data directory", fmt.Sprintf("%s", err))
+	if !r.installComposeCLI(ic) {
 		return
 	}
-
-	// TODO chown data dir to ssh user or aem user (create him maybe)
-	// TODO run with context and env vars for setting AEMC version
-
-	out, err := cl.Run(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", dataDir))
-	tflog.Info(ctx, string(out))
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
+	if !r.copyConfigFile(ic) {
 		return
 	}
-
-	configFile := data.Compose.ConfigFile.ValueString()
-	if err := cl.CopyFile(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", dataDir)); err != nil {
-		resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
+	if !r.copyLibraryDir(ic) {
 		return
 	}
-
-	// TODO copy lib dir
-
-	tflog.Info(ctx, "Launching AEM instance(s)")
-
-	// TODO register systemd service instead and start it
-	ymlBytes, err := cl.Run(fmt.Sprintf("cd %s && sh aemw instance launch --output-format yml", dataDir))
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
+	if !r.launch(ic) {
 		return
 	}
-	yml := string(ymlBytes) // TODO parse it and add to state
-
-	tflog.Info(ctx, "Launched AEM instance(s)")
-	tflog.Info(ctx, string(yml)) // TODO parse output; add it as data to the state; consider checking 'changed' flag from AEMCLI
 
 	// For the purposes of this example code, hardcoding a response value to
 	// save into the Terraform state.
@@ -208,6 +191,73 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+// TODO chown data dir to ssh user or aem user (create him maybe)
+func (r *InstanceResource) prepareDataDir(ic InstanceContext) bool {
+	if _, err := ic.cl.Run(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
+		ic.resp.Diagnostics.AddError("Cannot clean up AEM data directory", fmt.Sprintf("%s", err))
+		return false
+	}
+
+	if _, err := ic.cl.Run(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
+		ic.resp.Diagnostics.AddError("Cannot create AEM data directory", fmt.Sprintf("%s", err))
+		return false
+	}
+	return true
+}
+
+// TODO run with context and env vars for setting AEMC version
+func (r *InstanceResource) installComposeCLI(ic InstanceContext) bool {
+	out, err := ic.cl.Run(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
+	tflog.Info(ic.ctx, string(out))
+	if err != nil {
+		ic.resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
+		return false
+	}
+	return true
+}
+
+func (r *InstanceResource) copyConfigFile(ic InstanceContext) bool {
+	configFile := ic.data.Compose.ConfigFile.ValueString()
+	if err := ic.cl.CopyFile(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir())); err != nil {
+		ic.resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
+		return false
+	}
+	return true
+}
+
+func (r *InstanceResource) copyLibraryDir(ic InstanceContext) bool {
+	libDir := ic.data.Compose.LibDir.ValueString()
+	libFiles, err := os.ReadDir(libDir)
+	if err != nil {
+		ic.resp.Diagnostics.AddError("Unable to read files in AEM library directory", fmt.Sprintf("%s", err))
+		return false
+	}
+	for _, libFile := range libFiles {
+		if err := ic.cl.CopyFile(fmt.Sprintf("%s/%s", libDir, libFile.Name()), fmt.Sprintf("%s/aem/home/lib/%s", ic.DataDir(), libFile.Name())); err != nil {
+			ic.resp.Diagnostics.AddError("Unable to copy AEM library file", fmt.Sprintf("file path '%s/%s': %s", libDir, libFile.Name(), err))
+			return false
+		}
+	}
+	return true
+}
+
+func (r *InstanceResource) launch(ic InstanceContext) bool {
+	tflog.Info(ic.ctx, "Launching AEM instance(s)")
+
+	// TODO register systemd service instead and start it
+	// TODO set 'ENV TERM=xterm' ; without it AEM is unpacked wrongly; check it in AEMC?
+	ymlBytes, err := ic.cl.Run(fmt.Sprintf("cd %s && sh aemw instance launch --output-format yml", ic.DataDir()))
+	if err != nil {
+		ic.resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
+		return false
+	}
+	yml := string(ymlBytes) // TODO parse it and add to state
+
+	tflog.Info(ic.ctx, "Launched AEM instance(s)")
+	tflog.Info(ic.ctx, yml) // TODO parse output; add it as data to the state; consider checking 'changed' flag from AEMCLI
+	return true
+}
+
 func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data InstanceResourceModel
 
@@ -217,8 +267,6 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// TODO ... read the resource
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)

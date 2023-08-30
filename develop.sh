@@ -20,7 +20,7 @@ then
 fi
 
 TF_CLI_CONFIG_FILE="$(pwd)/dev_overrides.tfrc"
-TF_LOG=trace # TODO or info?
+TF_LOG=info # TODO or info?
 
 echo "Executing Terraform command at dir: $TF_DIR"
 (export TF_CLI_CONFIG_FILE && export TF_LOG && cd "$TF_DIR" && terraform "${@:2}")
