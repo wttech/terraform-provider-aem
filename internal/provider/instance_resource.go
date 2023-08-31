@@ -219,7 +219,7 @@ func (r *InstanceResource) installComposeCLI(ic InstanceCreateContext) bool {
 
 func (r *InstanceResource) copyConfigFile(ic InstanceCreateContext) bool {
 	configFile := ic.data.Compose.ConfigFile.ValueString()
-	if err := ic.cl.CopyFile(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir())); err != nil {
+	if err := ic.cl.FileCopy(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir()), true); err != nil {
 		ic.resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
 		return false
 	}
@@ -234,7 +234,7 @@ func (r *InstanceResource) copyLibraryDir(ic InstanceCreateContext) bool {
 		return false
 	}
 	for _, libFile := range libFiles {
-		if err := ic.cl.CopyFile(fmt.Sprintf("%s/%s", libDir, libFile.Name()), fmt.Sprintf("%s/aem/home/lib/%s", ic.DataDir(), libFile.Name())); err != nil {
+		if err := ic.cl.FileCopy(fmt.Sprintf("%s/%s", libDir, libFile.Name()), fmt.Sprintf("%s/aem/home/lib/%s", ic.DataDir(), libFile.Name()), false); err != nil {
 			ic.resp.Diagnostics.AddError("Unable to copy AEM library file", fmt.Sprintf("file path '%s/%s': %s", libDir, libFile.Name(), err))
 			return false
 		}
