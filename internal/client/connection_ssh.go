@@ -5,10 +5,9 @@ import (
 	"github.com/melbahja/goph"
 	"github.com/spf13/cast"
 	"golang.org/x/crypto/ssh"
-	"path/filepath"
 )
 
-type SSHClient struct {
+type SSHConnection struct {
 	client *goph.Client
 
 	host           string
@@ -18,7 +17,7 @@ type SSHClient struct {
 	port           int
 }
 
-func (s *SSHClient) Connect() error {
+func (s *SSHConnection) Connect() error {
 	auth, err := goph.Key(s.privateKeyFile, s.passphrase)
 	if err != nil {
 		return fmt.Errorf("SSH: cannot get auth using private key '%s': %w", s.privateKeyFile, err)
@@ -39,7 +38,7 @@ func (s *SSHClient) Connect() error {
 	return nil
 }
 
-func (s *SSHClient) Disconnect() error {
+func (s *SSHConnection) Disconnect() error {
 	if s.client == nil {
 		return nil
 	}
@@ -49,22 +48,15 @@ func (s *SSHClient) Disconnect() error {
 	return nil
 }
 
-func (s *SSHClient) Run(cmd string) ([]byte, error) {
+func (s *SSHConnection) Run(cmd string) ([]byte, error) {
 	out, err := s.client.Run(cmd)
 	if err != nil {
-		if len(out) > 0 { // TODO rethink error handling
-			return nil, fmt.Errorf("SSH: cannot run command '%s' on host '%s': %w\n\n%s", cmd, s.host, err, string(out))
-		}
 		return nil, fmt.Errorf("SSH: cannot run command '%s' on host '%s': %w", cmd, s.host, err)
 	}
 	return out, nil
 }
 
-func (s *SSHClient) CopyFile(localPath string, remotePath string) error {
-	dir := filepath.Dir(remotePath)
-	if _, err := s.client.Run(fmt.Sprintf("mkdir -p %s", dir)); err != nil {
-		return fmt.Errorf("SSH: cannot ensure directory '%s' before copying file: %w", dir, err)
-	}
+func (s *SSHConnection) CopyFile(localPath string, remotePath string) error {
 	if err := s.client.Upload(localPath, remotePath); err != nil {
 		return fmt.Errorf("SSH: cannot copy local file '%s' to remote path '%s' on host '%s': %w", localPath, remotePath, s.host, err)
 	}

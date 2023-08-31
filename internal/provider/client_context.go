@@ -6,10 +6,26 @@ import (
 	"github.com/wttech/terraform-provider-aem/internal/client"
 )
 
-type ClientContext[T interface{}] struct {
-	data T
+type ClientCreateContext[T interface{}] struct {
+	cl   *client.Client
 	ctx  context.Context
+	data T
 	req  resource.CreateRequest
 	resp *resource.CreateResponse
-	cl   client.Client
+}
+
+type ClientDeleteContext[T interface{}] struct {
+	cl   *client.Client
+	ctx  context.Context
+	data T
+	req  resource.DeleteRequest
+	resp *resource.DeleteResponse
+}
+
+type ClientReadContext[T interface{}] struct {
+	cl   *client.Client
+	ctx  context.Context
+	data T
+	req  resource.ReadRequest
+	resp *resource.ReadResponse
 }

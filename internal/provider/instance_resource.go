@@ -17,9 +17,9 @@ import (
 var _ resource.Resource = &InstanceResource{}
 var _ resource.ResourceWithImportState = &InstanceResource{}
 
-type InstanceContext ClientContext[InstanceResourceModel]
+type InstanceCreateContext ClientCreateContext[InstanceResourceModel]
 
-func (ic InstanceContext) DataDir() string {
+func (ic InstanceCreateContext) DataDir() string {
 	return ic.data.Compose.DataDir.ValueString()
 }
 
@@ -125,6 +125,7 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 }
 
 func (r *InstanceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+
 	var data InstanceResourceModel
 
 	// Read Terraform plan data into the model
@@ -151,10 +152,10 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	ic := InstanceContext{data, ctx, req, resp, cl}
+	ic := InstanceCreateContext{cl, ctx, data, req, resp}
 
 	tflog.Info(ctx, "Connected to AEM instance machine")
-	defer func(client client.Client) {
+	defer func(client *client.Client) {
 		err := client.Disconnect()
 		if err != nil {
 			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance machine", fmt.Sprintf("%s", err))
@@ -192,7 +193,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 }
 
 // TODO chown data dir to ssh user or aem user (create him maybe)
-func (r *InstanceResource) prepareDataDir(ic InstanceContext) bool {
+func (r *InstanceResource) prepareDataDir(ic InstanceCreateContext) bool {
 	if _, err := ic.cl.Run(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
 		ic.resp.Diagnostics.AddError("Cannot clean up AEM data directory", fmt.Sprintf("%s", err))
 		return false
@@ -206,7 +207,7 @@ func (r *InstanceResource) prepareDataDir(ic InstanceContext) bool {
 }
 
 // TODO run with context and env vars for setting AEMC version
-func (r *InstanceResource) installComposeCLI(ic InstanceContext) bool {
+func (r *InstanceResource) installComposeCLI(ic InstanceCreateContext) bool {
 	out, err := ic.cl.Run(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
 	tflog.Info(ic.ctx, string(out))
 	if err != nil {
@@ -216,7 +217,7 @@ func (r *InstanceResource) installComposeCLI(ic InstanceContext) bool {
 	return true
 }
 
-func (r *InstanceResource) copyConfigFile(ic InstanceContext) bool {
+func (r *InstanceResource) copyConfigFile(ic InstanceCreateContext) bool {
 	configFile := ic.data.Compose.ConfigFile.ValueString()
 	if err := ic.cl.CopyFile(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir())); err != nil {
 		ic.resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
@@ -225,7 +226,7 @@ func (r *InstanceResource) copyConfigFile(ic InstanceContext) bool {
 	return true
 }
 
-func (r *InstanceResource) copyLibraryDir(ic InstanceContext) bool {
+func (r *InstanceResource) copyLibraryDir(ic InstanceCreateContext) bool {
 	libDir := ic.data.Compose.LibDir.ValueString()
 	libFiles, err := os.ReadDir(libDir)
 	if err != nil {
@@ -241,7 +242,7 @@ func (r *InstanceResource) copyLibraryDir(ic InstanceContext) bool {
 	return true
 }
 
-func (r *InstanceResource) launch(ic InstanceContext) bool {
+func (r *InstanceResource) launch(ic InstanceCreateContext) bool {
 	tflog.Info(ic.ctx, "Launching AEM instance(s)")
 
 	// TODO register systemd service instead and start it
