@@ -14,6 +14,10 @@ func (c ClientManager) Make(typeName string, settings map[string]string) (*Clien
 		typeName:   typeName,
 		settings:   settings,
 		connection: connection,
+
+		Env: []string{
+			"TERM=xterm",
+		},
 	}, nil
 }
 

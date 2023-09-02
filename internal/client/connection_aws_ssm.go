@@ -1,5 +1,7 @@
 package client
 
+import "github.com/melbahja/goph"
+
 type AWSSSMConnection struct {
 	InstanceID string
 	Region     string
@@ -15,7 +17,7 @@ func (A AWSSSMConnection) Disconnect() error {
 	panic("implement me")
 }
 
-func (A AWSSSMConnection) Run(cmd string) ([]byte, error) {
+func (A AWSSSMConnection) Command(cmdLine []string) (*goph.Cmd, error) {
 	//TODO implement me
 	panic("implement me")
 }

@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"github.com/melbahja/goph"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,8 @@ type Client struct {
 	typeName   string
 	settings   map[string]string
 	connection Connection
+
+	Env []string
 }
 
 func (c Client) TypeName() string {
@@ -42,31 +45,44 @@ func (c Client) Connection() Connection {
 	return c.connection
 }
 
-func (c Client) Run(cmd string) ([]byte, error) {
-	return c.connection.Run(cmd)
+func (c Client) Run(cmdLine []string) (*goph.Cmd, error) {
+	return c.connection.Command(cmdLine)
 }
 
-func (c Client) RunWithErrOut(cmd string) ([]byte, error) {
-	out, err := c.connection.Run(cmd)
+func (c Client) RunShell(cmd string) ([]byte, error) {
+	cmdObj, err := c.Command([]string{"sh", "-c", cmd}) // TODO run pass output env vars
+	if err != nil {
+		return nil, fmt.Errorf("cannot create command '%s': %w", cmd, err)
+	}
+	out, err := cmdObj.CombinedOutput()
 	if err != nil {
 		if len(out) > 0 { // TODO rethink error handling
-			return nil, fmt.Errorf("cannot run command '%s': %w\n\n%s", cmd, err, string(out))
+			return nil, fmt.Errorf("cannot run command '%s': %w\n\n%s", cmdObj, err, string(out))
 		}
 		return nil, err
 	}
 	return out, nil
 }
 
+func (c Client) Command(cmdLine []string) (*goph.Cmd, error) {
+	cmd, err := c.connection.Command(cmdLine)
+	if err != nil {
+		return nil, err
+	}
+	cmd.Env = c.Env
+	return cmd, err
+}
+
 func (c Client) DirEnsure(path string) error {
-	_, err := c.RunWithErrOut(fmt.Sprintf("mkdir -p %s", path))
+	_, err := c.RunShell(fmt.Sprintf("mkdir -p %s", path))
 	if err != nil {
 		return fmt.Errorf("cannot ensure directory '%s': %w", path, err)
 	}
 	return nil
 }
 
-func (c Client) FileExists(path string) (bool, error) { // TODO test it
-	out, err := c.RunWithErrOut(fmt.Sprintf("test -f %s && echo '0' || echo '1'", path))
+func (c Client) FileExists(path string) (bool, error) {
+	out, err := c.RunShell(fmt.Sprintf("test -f %s && echo '0' || echo '1'", path))
 	if err != nil {
 		return false, err
 	}
@@ -77,7 +93,7 @@ func (c Client) FileMove(oldPath string, newPath string) error {
 	if err := c.DirEnsure(filepath.Dir(newPath)); err != nil {
 		return err
 	}
-	if _, err := c.RunWithErrOut(fmt.Sprintf("mv %s %s", oldPath, newPath)); err != nil {
+	if _, err := c.RunShell(fmt.Sprintf("mv %s %s", oldPath, newPath)); err != nil {
 		return fmt.Errorf("cannot move file '%s' to '%s': %w", oldPath, newPath, err)
 	}
 	return nil
@@ -106,7 +122,7 @@ func (c Client) DirCopy(localPath string, remotePath string, override bool) erro
 }
 
 func (c Client) FileDelete(path string) error {
-	if _, err := c.RunWithErrOut(fmt.Sprintf("rm -rf %s", path)); err != nil {
+	if _, err := c.RunShell(fmt.Sprintf("rm -rf %s", path)); err != nil {
 		return fmt.Errorf("cannot delete file '%s': %w", path, err)
 	}
 	return nil

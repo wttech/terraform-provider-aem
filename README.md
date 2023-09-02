@@ -143,5 +143,5 @@ For example: `sh develop.sh examples/ssh plan`.
 
 1. Run command `go run . -debug` from IDEA in debug mode and copy the value of `TF_REATTACH_PROVIDERS` from the output.
 2. Set up breakpoint in the code.
-3. Run `TF_REATTACH_PROVIDERS=<value_copied_above> TF_CLI_CONFIG_FILE=<absolute_dir_to_root>/dev_overrides.tfrc terraform apply` in one of the examples directory.
+3. Run `TF_REATTACH_PROVIDERS=<value_copied_above> TF_CLI_CONFIG_FILE=$(pwd)/dev_overrides.tfrc terraform apply` in one of the examples directory.
 4. The breakpoint should be hit.

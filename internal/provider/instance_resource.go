@@ -137,7 +137,6 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	tflog.Info(ctx, "Creating AEM instance resource")
 
 	tflog.Info(ctx, "Connecting to AEM instance machine")
-
 	typeName := data.Client.Type.ValueString()
 	var settings map[string]string
 	data.Client.Settings.ElementsAs(ctx, &settings, true)
@@ -151,18 +150,16 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to connect to AEM instance machine", fmt.Sprintf("%s", err))
 		return
 	}
+	tflog.Info(ctx, "Connected to AEM instance machine")
 
 	ic := InstanceCreateContext{cl, ctx, data, req, resp}
 
-	tflog.Info(ctx, "Connected to AEM instance machine")
 	defer func(client *client.Client) {
 		err := client.Disconnect()
 		if err != nil {
 			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance machine", fmt.Sprintf("%s", err))
 		}
 	}(cl)
-
-	tflog.Info(ctx, "Creating AEM instance resource")
 
 	if !r.prepareDataDir(ic) {
 		return
@@ -194,12 +191,12 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 // TODO chown data dir to ssh user or aem user (create him maybe)
 func (r *InstanceResource) prepareDataDir(ic InstanceCreateContext) bool {
-	if _, err := ic.cl.Run(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
+	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
 		ic.resp.Diagnostics.AddError("Cannot clean up AEM data directory", fmt.Sprintf("%s", err))
 		return false
 	}
 
-	if _, err := ic.cl.Run(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
+	if _, err := ic.cl.RunShell(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
 		ic.resp.Diagnostics.AddError("Cannot create AEM data directory", fmt.Sprintf("%s", err))
 		return false
 	}
@@ -208,7 +205,7 @@ func (r *InstanceResource) prepareDataDir(ic InstanceCreateContext) bool {
 
 // TODO run with context and env vars for setting AEMC version
 func (r *InstanceResource) installComposeCLI(ic InstanceCreateContext) bool {
-	out, err := ic.cl.Run(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
+	out, err := ic.cl.RunShell(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
 	tflog.Info(ic.ctx, string(out))
 	if err != nil {
 		ic.resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
@@ -246,8 +243,8 @@ func (r *InstanceResource) launch(ic InstanceCreateContext) bool {
 	tflog.Info(ic.ctx, "Launching AEM instance(s)")
 
 	// TODO register systemd service instead and start it
-	// TODO set 'ENV TERM=xterm' ; without it AEM is unpacked wrongly; check it in AEMC?
-	ymlBytes, err := ic.cl.Run(fmt.Sprintf("cd %s && sh aemw instance launch --output-format yml", ic.DataDir()))
+	ymlBytes, err := ic.cl.RunShell(fmt.Sprintf("cd %s && aemw instance launch --output-format yml", ic.DataDir()))
+
 	if err != nil {
 		ic.resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
 		return false

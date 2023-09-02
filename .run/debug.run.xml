@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="debug" type="GoApplicationRunConfiguration" factoryName="Go Application">
     <module name="terraform-provider-aem" />
-    <working_directory value="$PROJECT_DIR$" />
+    <working_directory value="$PROJECT_DIR$/examples/ssh" />
     <go_parameters value="-i" />
     <parameters value="-debug" />
     <kind value="DIRECTORY" />

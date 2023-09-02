@@ -5,6 +5,7 @@ import (
 	"github.com/melbahja/goph"
 	"github.com/spf13/cast"
 	"golang.org/x/crypto/ssh"
+	"strings"
 )
 
 type SSHConnection struct {
@@ -48,12 +49,22 @@ func (s *SSHConnection) Disconnect() error {
 	return nil
 }
 
-func (s *SSHConnection) Run(cmd string) ([]byte, error) {
-	out, err := s.client.Run(cmd)
+func (s *SSHConnection) Command(cmdLine []string) (*goph.Cmd, error) {
+	name, args := s.splitCommandLine(cmdLine)
+	cmd, err := s.client.Command(name, args...)
 	if err != nil {
-		return nil, fmt.Errorf("SSH: cannot run command '%s' on host '%s': %w", cmd, s.host, err)
+		return nil, fmt.Errorf("SSH: cannot create command '%s' for host '%s': %w", strings.Join(cmdLine, " "), s.host, err)
 	}
-	return out, nil
+	return cmd, nil
+}
+
+func (s *SSHConnection) splitCommandLine(cmdLine []string) (string, []string) {
+	name := cmdLine[0]
+	var args []string
+	if len(cmdLine) > 1 {
+		args = cmdLine[1:]
+	}
+	return name, args
 }
 
 func (s *SSHConnection) CopyFile(localPath string, remotePath string) error {
