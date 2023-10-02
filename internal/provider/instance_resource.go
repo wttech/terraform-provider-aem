@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
-	"os"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -146,7 +145,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to determine AEM instance client", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := cl.Connect(); err != nil {
+	if err := cl.ConnectWithRetry(func() { tflog.Info(ctx, "Awaiting connection to AEM instance machine") }); err != nil {
 		resp.Diagnostics.AddError("Unable to connect to AEM instance machine", fmt.Sprintf("%s", err))
 		return
 	}
@@ -224,17 +223,11 @@ func (r *InstanceResource) copyConfigFile(ic InstanceCreateContext) bool {
 }
 
 func (r *InstanceResource) copyLibraryDir(ic InstanceCreateContext) bool {
-	libDir := ic.data.Compose.LibDir.ValueString()
-	libFiles, err := os.ReadDir(libDir)
-	if err != nil {
-		ic.resp.Diagnostics.AddError("Unable to read files in AEM library directory", fmt.Sprintf("%s", err))
+	localLibDir := ic.data.Compose.LibDir.ValueString()
+	remoteLibDir := fmt.Sprintf("%s/aem/home/lib", ic.DataDir())
+	if err := ic.cl.DirCopy(localLibDir, remoteLibDir, false); err != nil {
+		ic.resp.Diagnostics.AddError("Unable to copy AEM library dir", fmt.Sprintf("%s", err))
 		return false
-	}
-	for _, libFile := range libFiles {
-		if err := ic.cl.FileCopy(fmt.Sprintf("%s/%s", libDir, libFile.Name()), fmt.Sprintf("%s/aem/home/lib/%s", ic.DataDir(), libFile.Name()), false); err != nil {
-			ic.resp.Diagnostics.AddError("Unable to copy AEM library file", fmt.Sprintf("file path '%s/%s': %s", libDir, libFile.Name(), err))
-			return false
-		}
 	}
 	return true
 }
@@ -243,7 +236,7 @@ func (r *InstanceResource) launch(ic InstanceCreateContext) bool {
 	tflog.Info(ic.ctx, "Launching AEM instance(s)")
 
 	// TODO register systemd service instead and start it
-	ymlBytes, err := ic.cl.RunShell(fmt.Sprintf("cd %s && aemw instance launch --output-format yml", ic.DataDir()))
+	ymlBytes, err := ic.cl.RunShell(fmt.Sprintf("cd %s && sh aemw instance launch", ic.DataDir()))
 
 	if err != nil {
 		ic.resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))

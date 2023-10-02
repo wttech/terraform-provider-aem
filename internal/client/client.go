@@ -1,11 +1,13 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"github.com/melbahja/goph"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type Client struct {
@@ -37,6 +39,25 @@ func (c Client) Connect() error {
 	return c.connection.Connect()
 }
 
+func (c Client) ConnectWithRetry(callback func()) error {
+	timeout := time.Minute * 5
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("cannot connect - awaiting timeout reached '%s'", timeout)
+		default:
+			err := c.Connect()
+			if err == nil {
+				return nil
+			}
+			time.Sleep(time.Second)
+			callback()
+		}
+	}
+}
+
 func (c Client) Disconnect() error {
 	return c.connection.Disconnect()
 }
@@ -50,7 +71,7 @@ func (c Client) Run(cmdLine []string) (*goph.Cmd, error) {
 }
 
 func (c Client) RunShell(cmd string) ([]byte, error) {
-	cmdObj, err := c.Command([]string{"sh", "-c", cmd}) // TODO run pass output env vars
+	cmdObj, err := c.Command([]string{"sh", "-c", "\"" + cmd + "\""})
 	if err != nil {
 		return nil, fmt.Errorf("cannot create command '%s': %w", cmd, err)
 	}
@@ -86,7 +107,7 @@ func (c Client) FileExists(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return strings.TrimSpace(string(out)) == "1", nil
+	return strings.TrimSpace(string(out)) == "0", nil
 }
 
 func (c Client) FileMove(oldPath string, newPath string) error {
@@ -108,12 +129,14 @@ func (c Client) DirCopy(localPath string, remotePath string, override bool) erro
 		return fmt.Errorf("cannot list files to copy in directory '%s': %w", localPath, err)
 	}
 	for _, file := range dir {
+		localSubPath := filepath.Join(localPath, file.Name())
+		remoteSubPath := filepath.Join(remotePath, file.Name())
 		if file.IsDir() {
-			if err := c.DirCopy(filepath.Join(localPath, file.Name()), filepath.Join(remotePath, file.Name()), override); err != nil {
+			if err := c.DirCopy(localSubPath, remoteSubPath, override); err != nil {
 				return err
 			}
 		} else {
-			if err := c.FileCopy(filepath.Join(localPath, file.Name()), filepath.Join(remotePath, file.Name()), override); err != nil {
+			if err := c.FileCopy(localSubPath, remoteSubPath, override); err != nil {
 				return err
 			}
 		}
