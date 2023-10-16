@@ -15,7 +15,7 @@ func (c ClientManager) Make(typeName string, settings map[string]string) (*Clien
 		settings:   settings,
 		connection: connection,
 
-		Env: []string{},
+		Env: map[string]string{},
 	}, nil
 }
 

@@ -15,7 +15,8 @@ type Client struct {
 	settings   map[string]string
 	connection Connection
 
-	Env []string
+	Env    map[string]string
+	EnvDir string
 }
 
 func (c Client) TypeName() string {
@@ -70,8 +71,43 @@ func (c Client) Run(cmdLine []string) (*goph.Cmd, error) {
 	return c.connection.Command(cmdLine)
 }
 
+func (c Client) SetupEnv() error {
+	file, err := os.CreateTemp(os.TempDir(), "tf-provider-aem-env-*.sh")
+	path := os.TempDir() + "/" + file.Name()
+	defer func() { _ = file.Close(); _ = os.Remove(path) }()
+	if err != nil {
+		return fmt.Errorf("cannot create temporary file for remote shell environment script: %w", err)
+	}
+	if _, err := file.WriteString(c.envScriptString()); err != nil {
+		return fmt.Errorf("cannot write temporary file for remote shell environment script: %w", err)
+	}
+	if err := c.FileCopy(path, c.envScriptPath(), true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c Client) envScriptPath() string {
+	return fmt.Sprintf("%s/env.sh", c.EnvDir)
+}
+
+func (c Client) envScriptString() string {
+	var sb strings.Builder
+	sb.WriteString("#!/bin/sh\n")
+	for name, value := range c.Env {
+		escapedValue := strings.ReplaceAll(value, "\"", "\\\"")
+		escapedValue = strings.ReplaceAll(escapedValue, "$", "\\$")
+		sb.WriteString(fmt.Sprintf("export %s=\"%s\"\n", name, escapedValue))
+	}
+	return sb.String()
+}
+
+func (c Client) RunShellWithEnv(cmd string) ([]byte, error) {
+	return c.RunShell(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
+}
+
 func (c Client) RunShell(cmd string) ([]byte, error) {
-	cmdObj, err := c.Command([]string{"sh", "-c", "\"" + cmd + "\""})
+	cmdObj, err := c.connection.Command([]string{"sh", "-c", "\"" + cmd + "\""})
 	if err != nil {
 		return nil, fmt.Errorf("cannot create command '%s': %w", cmd, err)
 	}
@@ -83,15 +119,6 @@ func (c Client) RunShell(cmd string) ([]byte, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-func (c Client) Command(cmdLine []string) (*goph.Cmd, error) {
-	cmd, err := c.connection.Command(cmdLine)
-	if err != nil {
-		return nil, err
-	}
-	cmd.Env = c.Env
-	return cmd, err
 }
 
 func (c Client) DirEnsure(path string) error {

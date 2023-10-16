@@ -11,7 +11,7 @@ resource "aem_instance" "single" {
     }
   }
   compose {
-    version     = "1.4.1"
+    version     = "1.5.7"
     data_dir    = "/home/ec2-user/aemc"
     lib_dir     = "aem/home/lib"
     config_file = "aem/default/etc/aem.yml"

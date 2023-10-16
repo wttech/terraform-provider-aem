@@ -56,6 +56,7 @@ func (p *AEMProvider) Configure(ctx context.Context, req provider.ConfigureReque
 
 	// Example client configuration for data sources and resources
 	clientManager := client.ClientManagerDefault
+
 	resp.DataSourceData = clientManager
 	resp.ResourceData = clientManager
 }

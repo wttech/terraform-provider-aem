@@ -145,6 +145,13 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to determine AEM instance client", fmt.Sprintf("%s", err))
 		return
 	}
+
+	cl.Env["AEM_CLI_VERSION"] = data.Compose.Version.ValueString()
+	if err := cl.SetupEnv(); err != nil {
+		resp.Diagnostics.AddError("Unable to setup shell environment script", fmt.Sprintf("%s", err))
+		return
+	}
+
 	if err := cl.ConnectWithRetry(func() { tflog.Info(ctx, "Awaiting connection to AEM instance machine") }); err != nil {
 		resp.Diagnostics.AddError("Unable to connect to AEM instance machine", fmt.Sprintf("%s", err))
 		return
@@ -163,7 +170,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	if !r.prepareDataDir(ic) {
 		return
 	}
-	if !r.installComposeCLI(ic) {
+	if !r.installCompose(ic) {
 		return
 	}
 	if !r.copyConfigFile(ic) {
@@ -202,9 +209,8 @@ func (r *InstanceResource) prepareDataDir(ic InstanceCreateContext) bool {
 	return true
 }
 
-// TODO run with context and env vars for setting AEMC version
-func (r *InstanceResource) installComposeCLI(ic InstanceCreateContext) bool {
-	out, err := ic.cl.RunShell(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
+func (r *InstanceResource) installCompose(ic InstanceCreateContext) bool {
+	out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
 	tflog.Info(ic.ctx, string(out))
 	if err != nil {
 		ic.resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
@@ -236,7 +242,7 @@ func (r *InstanceResource) launch(ic InstanceCreateContext) bool {
 	tflog.Info(ic.ctx, "Launching AEM instance(s)")
 
 	// TODO register systemd service instead and start it
-	ymlBytes, err := ic.cl.RunShell(fmt.Sprintf("cd %s && sh aemw instance launch", ic.DataDir()))
+	ymlBytes, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance launch", ic.DataDir()))
 
 	if err != nil {
 		ic.resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
