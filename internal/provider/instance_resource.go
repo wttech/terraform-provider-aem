@@ -26,13 +26,10 @@ func NewInstanceResource() resource.Resource {
 	return &InstanceResource{}
 }
 
-// InstanceResource defines the resource implementation.
-
 type InstanceResource struct {
 	clientManager *client.ClientManager
 }
 
-// InstanceResourceModel describes the resource data model.
 type InstanceResourceModel struct {
 	Client struct {
 		Type     types.String `tfsdk:"type"`
@@ -45,6 +42,19 @@ type InstanceResourceModel struct {
 		LibDir     types.String `tfsdk:"lib_dir"`
 		InstanceId types.String `tfsdk:"instance_id"`
 	} `tfsdk:"compose"`
+	Data InstanceResourceDataModel `tfsdk:"data"`
+}
+
+type InstanceResourceDataModel struct {
+	Instances []struct {
+		ID           types.String   `yaml:"id" tfsdk:"id"`
+		URL          types.String   `yaml:"url" tfsdk:"url"`
+		AemVersion   types.String   `yaml:"aem_version" tfsdk:"aem_version"`
+		Attributes   []types.String `yaml:"attributes" tfsdk:"attributes"`
+		RunModes     []types.String `yaml:"run_modes" tfsdk:"run_modes"`
+		HealthChecks []types.String `yaml:"health_checks" tfsdk:"health_checks"`
+		Dir          types.String   `yaml:"dir" tfsdk:"dir"`
+	} `json:"instances" tfsdk:"instances"`
 }
 
 func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -93,6 +103,41 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					"instance_id": schema.StringAttribute{
 						MarkdownDescription: "ID of the AEM instance to use (one of the instances defined in the configuration file)",
 						Optional:            true,
+					},
+				},
+			},
+			"data": schema.SingleNestedBlock{
+				Attributes: map[string]schema.Attribute{
+					"instances": schema.ListNestedAttribute{
+						Computed: true,
+						NestedObject: schema.NestedAttributeObject{
+							Attributes: map[string]schema.Attribute{
+								"id": schema.StringAttribute{
+									Computed: true,
+								},
+								"url": schema.StringAttribute{
+									Computed: true,
+								},
+								"aem_version": schema.StringAttribute{
+									Computed: true,
+								},
+								"attributes": schema.ListAttribute{
+									ElementType: types.StringType,
+									Computed:    true,
+								},
+								"run_modes": schema.ListAttribute{
+									ElementType: types.StringType,
+									Computed:    true,
+								},
+								"health_checks": schema.ListAttribute{
+									ElementType: types.StringType,
+									Computed:    true,
+								},
+								"dir": schema.StringAttribute{
+									Computed: true,
+								},
+							},
+						},
 					},
 				},
 			},
@@ -190,6 +235,10 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 	// Write logs using the tflog package
 	// Documentation: https://terraform.io/plugin/log
 	tflog.Info(ctx, "Created AEM instance resource")
+
+	var dataRead InstanceResourceDataModel
+	// TODO request data from command 'sh aemw instance status --output-format yaml'
+	data.Data = dataRead
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
