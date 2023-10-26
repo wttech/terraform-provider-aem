@@ -187,6 +187,14 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		}
 	}(ic)
 
+	if err := ic.prepareDataDir(); err != nil {
+		resp.Diagnostics.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
+		return
+	}
+	if err := ic.installCompose(); err != nil {
+		resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
+		return
+	}
 	if err := ic.copyConfigFile(); err != nil {
 		resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
 		return
@@ -314,7 +322,7 @@ func (r *InstanceResource) Client(ctx context.Context, data InstanceResourceMode
 	}
 
 	cl.Env["AEM_CLI_VERSION"] = data.Compose.Version.ValueString()
-	cl.EnvDir = data.Compose.DataDir.ValueString()
+	cl.EnvDir = "/tmp" // TODO make configurable; or just in user home dir './' ?
 
 	if err := cl.SetupEnv(); err != nil {
 		return nil, err

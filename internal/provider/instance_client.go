@@ -17,9 +17,11 @@ func (ic *InstanceClient) Close() error {
 
 // TODO chown data dir to ssh user or 'aem' user (create him maybe)
 func (ic *InstanceClient) prepareDataDir() error {
+	/* TODO to avoid re-uploading library files (probably temporary)
 	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot clean up AEM data directory: %w", err)
 	}
+	*/
 	if _, err := ic.cl.RunShell(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot create AEM data directory: %w", err)
 	}
