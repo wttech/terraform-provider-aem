@@ -73,7 +73,7 @@ func (c Client) Run(cmdLine []string) (*goph.Cmd, error) {
 
 func (c Client) SetupEnv() error {
 	file, err := os.CreateTemp(os.TempDir(), "tf-provider-aem-env-*.sh")
-	path := os.TempDir() + "/" + file.Name()
+	path := file.Name()
 	defer func() { _ = file.Close(); _ = os.Remove(path) }()
 	if err != nil {
 		return fmt.Errorf("cannot create temporary file for remote shell environment script: %w", err)
