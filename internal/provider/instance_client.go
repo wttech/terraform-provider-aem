@@ -28,8 +28,8 @@ func (ic *InstanceClient) prepareDataDir() error {
 	return nil
 }
 
-func (ic *InstanceClient) installCompose() error {
-	out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
+func (ic *InstanceClient) installCompose() error { // TODO do not rely on github script here maybe
+	out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh?token=1 | sh", ic.DataDir()))
 	tflog.Info(ic.ctx, string(out))
 	if err != nil {
 		return fmt.Errorf("cannot install AEM Compose CLI: %w", err)

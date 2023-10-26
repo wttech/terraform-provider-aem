@@ -295,7 +295,7 @@ func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportS
 
 func (ic *InstanceClient) ReadStatus() (InstanceStatusModel, error) {
 	var status InstanceStatusModel
-	yamlBytes, err := ic.cl.RunShellWithEnv("sh aemw instance status --output-format yaml")
+	yamlBytes, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.DataDir()))
 	if err != nil {
 		return status, err
 	}
