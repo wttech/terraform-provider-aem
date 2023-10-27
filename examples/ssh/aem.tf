@@ -17,3 +17,8 @@ resource "aem_instance" "single" {
     config_file = "aem/default/etc/aem.yml"
   }
 }
+
+
+output "aem_instance_single" {
+  value = aem_instance.single.instances
+}

@@ -47,8 +47,7 @@ type InstanceStatusItemModel struct {
 	AemVersion types.String `tfsdk:"aem_version"`
 	Dir        types.String `tfsdk:"dir"`
 	Attributes types.List   `tfsdk:"attributes"`
-	//RunModes     types.List   `tfsdk:"run_modes"`
-	//HealthChecks types.List   `tfsdk:"health_checks"`
+	RunModes   types.List   `tfsdk:"run_modes"`
 }
 
 func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
@@ -58,8 +57,7 @@ func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
 		"aem_version": types.StringType,
 		"dir":         types.StringType,
 		"attributes":  types.ListType{ElemType: types.StringType},
-		//"health_checks": types.ListType{ElemType: types.StringType},
-		//"run_modes":     types.ListType{ElemType: types.StringType},
+		"run_modes":   types.ListType{ElemType: types.StringType},
 	}
 }
 
@@ -132,14 +130,10 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 							ElementType: types.StringType,
 							Computed:    true,
 						},
-						//"run_modes": schema.ListAttribute{
-						//	ElementType: types.StringType,
-						//	Computed:    true,
-						//},
-						//"health_checks": schema.ListAttribute{
-						//	ElementType: types.StringType,
-						//	Computed:    true,
-						//},
+						"run_modes": schema.ListAttribute{
+							ElementType: types.StringType,
+							Computed:    true,
+						},
 						"dir": schema.StringAttribute{
 							Computed: true,
 						},
@@ -249,10 +243,8 @@ func (r *InstanceResource) fillModelWithStatus(ctx context.Context, model *Insta
 	for i, instance := range status.Data.Instances {
 		attributeList, diags := types.ListValueFrom(ctx, types.StringType, instance.Attributes)
 		allDiags.Append(diags...)
-		//runModeList, diags := types.ListValueFrom(ctx, types.StringType, instance.RunModes)
-		//allDiags.Append(diags...)
-		//healthCheckList, diags := types.ListValueFrom(ctx, types.StringType, instance.HealthChecks)
-		//allDiags.Append(diags...)
+		runModeList, diags := types.ListValueFrom(ctx, types.StringType, instance.RunModes)
+		allDiags.Append(diags...)
 
 		instances[i] = InstanceStatusItemModel{
 			ID:         types.StringValue(instance.ID),
@@ -260,8 +252,7 @@ func (r *InstanceResource) fillModelWithStatus(ctx context.Context, model *Insta
 			AemVersion: types.StringValue(instance.AemVersion),
 			Dir:        types.StringValue(instance.Dir),
 			Attributes: attributeList,
-			//RunModes:     runModeList,
-			//HealthChecks: healthCheckList,
+			RunModes:   runModeList,
 		}
 	}
 	instanceList, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: InstanceStatusItemModel{}.attrTypes()}, instances)
