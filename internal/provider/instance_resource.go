@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -10,7 +12,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
-	"gopkg.in/yaml.v3"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -37,19 +38,23 @@ type InstanceResourceModel struct {
 		LibDir     types.String `tfsdk:"lib_dir"`
 		InstanceId types.String `tfsdk:"instance_id"`
 	} `tfsdk:"compose"`
-	Status *InstanceStatusModel `tfsdk:"status"`
+	Instances types.List `tfsdk:"instances"`
 }
 
-type InstanceStatusModel struct {
-	Instances []struct {
-		ID           types.String   `yaml:"id" tfsdk:"id"`
-		URL          types.String   `yaml:"url" tfsdk:"url"`
-		AemVersion   types.String   `yaml:"aem_version" tfsdk:"aem_version"`
-		Attributes   []types.String `yaml:"attributes" tfsdk:"attributes"`
-		RunModes     []types.String `yaml:"run_modes" tfsdk:"run_modes"`
-		HealthChecks []types.String `yaml:"health_checks" tfsdk:"health_checks"`
-		Dir          types.String   `yaml:"dir" tfsdk:"dir"`
-	} `yaml:"instances" tfsdk:"instances"`
+type InstanceStatusItemModel struct {
+	//ID           types.String   `tfsdk:"id"`
+	URL types.String `tfsdk:"url"`
+	//AemVersion   types.String   `tfsdk:"aem_version"`
+	//Attributes   []types.String `tfsdk:"attributes"`
+	//RunModes     []types.String `tfsdk:"run_modes"`
+	//HealthChecks []types.String `tfsdk:"health_checks"`
+	//Dir          types.String   `tfsdk:"dir"`
+}
+
+func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"url": types.StringType,
+	}
 }
 
 func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -101,42 +106,75 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					},
 				},
 			},
-			"status": schema.SingleNestedBlock{
-				Attributes: map[string]schema.Attribute{
-					"instances": schema.ListNestedAttribute{
-						Computed: true,
-						NestedObject: schema.NestedAttributeObject{
-							Attributes: map[string]schema.Attribute{
-								"id": schema.StringAttribute{
-									Computed: true,
-								},
-								"url": schema.StringAttribute{
-									Computed: true,
-								},
-								"aem_version": schema.StringAttribute{
-									Computed: true,
-								},
-								"attributes": schema.ListAttribute{
-									ElementType: types.StringType,
-									Computed:    true,
-								},
-								"run_modes": schema.ListAttribute{
-									ElementType: types.StringType,
-									Computed:    true,
-								},
-								"health_checks": schema.ListAttribute{
-									ElementType: types.StringType,
-									Computed:    true,
-								},
-								"dir": schema.StringAttribute{
-									Computed: true,
-								},
-							},
+		},
+
+		Attributes: map[string]schema.Attribute{
+			"instances": schema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						//"id": schema.StringAttribute{
+						//	Computed: true,
+						//},
+						"url": schema.StringAttribute{
+							Computed: true,
 						},
+						//"aem_version": schema.StringAttribute{
+						//	Computed: true,
+						//},
+						//"attributes": schema.ListAttribute{
+						//	ElementType: types.StringType,
+						//	Computed:    true,
+						//},
+						//"run_modes": schema.ListAttribute{
+						//	ElementType: types.StringType,
+						//	Computed:    true,
+						//},
+						//"health_checks": schema.ListAttribute{
+						//	ElementType: types.StringType,
+						//	Computed:    true,
+						//},
+						//"dir": schema.StringAttribute{
+						//	Computed: true,
+						//},
 					},
 				},
 			},
 		},
+		//
+		//Attributes: map[string]schema.Attribute{
+		//	"instances": schema.ListNestedAttribute{
+		//		Computed: true,
+		//
+		//		NestedObject: schema.NestedAttributeObject{
+		//			Attributes: map[string]schema.Attribute{
+		//				//"id": schema.StringAttribute{
+		//				//	Computed: true,
+		//				//},
+		//				//"url": schema.StringAttribute{
+		//				//	Computed: true,
+		//				//},
+		//				//"aem_version": schema.StringAttribute{
+		//				//	Computed: true,
+		//				//},
+		//				//"attributes": schema.ListAttribute{
+		//				//	ElementType: types.StringType,
+		//				//	Computed:    true,
+		//				//},
+		//				//"run_modes": schema.ListAttribute{
+		//				//	ElementType: types.StringType,
+		//				//	Computed:    true,
+		//				//},
+		//				//"health_checks": schema.ListAttribute{
+		//				//	ElementType: types.StringType,
+		//				//	Computed:    true,
+		//				//},
+		//				//"dir": schema.StringAttribute{
+		//				//	Computed: true,
+		//				//},
+		//			},
+		//		},
+		//	},
 	}
 }
 
@@ -164,18 +202,18 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 }
 
 func (r *InstanceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-
-	var data InstanceResourceModel
+	model := r.defaultModel()
 
 	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	diags := req.Plan.Get(ctx, &model)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	tflog.Info(ctx, "Creating AEM instance resource")
 
-	ic, err := r.Client(ctx, data)
+	ic, err := r.Client(ctx, model)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 		return
@@ -191,7 +229,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := ic.installCompose(); err != nil {
+	if err := ic.installComposeWrapper(); err != nil {
 		resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
 	}
@@ -221,45 +259,84 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
 		return
 	}
-	data.Status = &status
+
+	resp.Diagnostics.Append(r.fillModelWithStatus(ctx, &model, status)...)
 
 	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
+func (r *InstanceResource) defaultModel() InstanceResourceModel {
+	return InstanceResourceModel{}
+}
+
+func (r *InstanceResource) fillModelWithStatus(ctx context.Context, model *InstanceResourceModel, status InstanceStatus) diag.Diagnostics {
+	instances := make([]InstanceStatusItemModel, len(status.Data.Instances))
+	for _, instance := range status.Data.Instances {
+		instances = append(instances, InstanceStatusItemModel{
+			URL: types.StringValue(instance.URL),
+		})
+	}
+	instanceList, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: InstanceStatusItemModel{}.attrTypes()}, instances)
+	model.Instances = instanceList
+	return diags
+}
+
+//func (r *InstanceResource) fillModelWithStatus(model *InstanceResourceModel, status InstanceStatus) {
+//	model.Instances = make([]InstanceStatusItemModel, len(status.Data.Instances))
+//	for i, _ := range status.Data.Instances {
+//		model.Instances[i] = InstanceStatusItemModel{
+//			//ID:  types.StringValue(instance.ID),
+//			//URL: types.StringValue(instance.URL),
+//			//AemVersion:   types.StringValue(instance.AemVersion),
+//			//Attributes:   make([]types.String, len(instance.Attributes)),
+//			//RunModes:     make([]types.String, len(instance.RunModes)),
+//			//HealthChecks: make([]types.String, len(instance.HealthChecks)),
+//			//Dir:          types.StringValue(instance.Dir),
+//		}
+//		//for j, attr := range instance.Attributes {
+//		//	model.Instances[i].Attributes[j] = types.StringValue(attr)
+//		//}
+//		//for j, runMode := range instance.RunModes {
+//		//	model.Instances[i].RunModes[j] = types.StringValue(runMode)
+//		//}
+//		//for j, healthCheck := range instance.HealthChecks {
+//		//	model.Instances[i].HealthChecks[j] = types.StringValue(healthCheck)
+//		//}
+//	}
+//}
+
 func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data InstanceResourceModel
+	model := r.defaultModel()
 
 	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// TODO connect and read status when instance is running
-	/*
-		ic, err := r.Client(ctx, data)
+	ic, err := r.Client(ctx, model)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
+		return
+	}
+	defer func(ic *InstanceClient) {
+		err := ic.Close()
 		if err != nil {
-			resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
-			return
+			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
 		}
-		defer func(ic *InstanceClient) {
-			err := ic.Close()
-			if err != nil {
-				resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
-			}
-		}(ic)
+	}(ic)
 
-		dataRead, err := ic.ReadStatus()
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
-			return
-		}
-		data.Status = &dataRead
-	*/
+	status, err := ic.ReadStatus()
+	if err != nil { //
+		resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
+		return
+	}
+
+	resp.Diagnostics.Append(r.fillModelWithStatus(ctx, &model, status)...)
 
 	// Save updated data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
 func (r *InstanceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -291,18 +368,6 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 
 func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
-}
-
-func (ic *InstanceClient) ReadStatus() (InstanceStatusModel, error) {
-	var status InstanceStatusModel
-	yamlBytes, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.DataDir()))
-	if err != nil {
-		return status, err
-	}
-	if err := yaml.Unmarshal(yamlBytes, &status); err != nil {
-		return status, fmt.Errorf("unable to parse AEM instance status: %w", err)
-	}
-	return status, nil
 }
 
 func (r *InstanceResource) Client(ctx context.Context, data InstanceResourceModel) (*InstanceClient, error) {
