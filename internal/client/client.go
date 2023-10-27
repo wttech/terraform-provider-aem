@@ -132,7 +132,7 @@ func (c Client) DirEnsure(path string) error {
 func (c Client) FileExists(path string) (bool, error) {
 	out, err := c.RunShell(fmt.Sprintf("test -f %s && echo '0' || echo '1'", path))
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("cannot check if file exists '%s': %w", path, err)
 	}
 	return strings.TrimSpace(string(out)) == "0", nil
 }
@@ -145,6 +145,14 @@ func (c Client) FileMove(oldPath string, newPath string) error {
 		return fmt.Errorf("cannot move file '%s' to '%s': %w", oldPath, newPath, err)
 	}
 	return nil
+}
+
+func (c Client) DirExists(path string) (bool, error) {
+	out, err := c.RunShell(fmt.Sprintf("test -d %s && echo '0' || echo '1'", path))
+	if err != nil {
+		return false, fmt.Errorf("cannot check if directory exists '%s': %w", path, err)
+	}
+	return strings.TrimSpace(string(out)) == "0", nil
 }
 
 func (c Client) DirCopy(localPath string, remotePath string, override bool) error {

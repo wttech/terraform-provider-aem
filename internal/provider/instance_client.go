@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"gopkg.in/yaml.v3"
 )
 
 type InstanceClient ClientContext[InstanceResourceModel]
@@ -28,11 +29,17 @@ func (ic *InstanceClient) prepareDataDir() error {
 	return nil
 }
 
-func (ic *InstanceClient) installCompose() error { // TODO do not rely on github script here maybe
-	out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh?token=1 | sh", ic.DataDir()))
-	tflog.Info(ic.ctx, string(out))
+func (ic *InstanceClient) installComposeWrapper() error {
+	exists, err := ic.cl.FileExists(fmt.Sprintf("%s/aemw", ic.DataDir()))
 	if err != nil {
-		return fmt.Errorf("cannot install AEM Compose CLI: %w", err)
+		return fmt.Errorf("cannot check if AEM Compose CLI wrapper is installed: %w", err)
+	}
+	if !exists {
+		out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.DataDir()))
+		tflog.Info(ic.ctx, string(out))
+		if err != nil {
+			return fmt.Errorf("cannot download AEM Compose CLI wrapper: %w", err)
+		}
 	}
 	return nil
 }
@@ -83,4 +90,30 @@ func (ic *InstanceClient) launch() error {
 	tflog.Info(ic.ctx, textStr) // TODO consider checking 'changed' flag here if needed
 
 	return nil
+}
+
+type InstanceStatus struct {
+	Data struct {
+		Instances []struct {
+			ID           string   `yaml:"id"`
+			URL          string   `yaml:"url"`
+			AemVersion   string   `yaml:"aem_version"`
+			Attributes   []string `yaml:"attributes"`
+			RunModes     []string `yaml:"run_modes"`
+			HealthChecks []string `yaml:"health_checks"`
+			Dir          string   `yaml:"dir"`
+		} `yaml:"instances"`
+	}
+}
+
+func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
+	var status InstanceStatus
+	yamlBytes, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.DataDir()))
+	if err != nil {
+		return status, err
+	}
+	if err := yaml.Unmarshal(yamlBytes, &status); err != nil {
+		return status, fmt.Errorf("unable to parse AEM instance status: %w", err)
+	}
+	return status, nil
 }
