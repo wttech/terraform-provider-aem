@@ -211,12 +211,10 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
-	/* TODO systemd and stuff for later
 	if err := ic.launch(); err != nil {
 		resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
-	*/
 
 	tflog.Info(ctx, "Created AEM instance resource")
 

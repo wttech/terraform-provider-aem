@@ -19,6 +19,6 @@ resource "aem_instance" "single" {
 }
 
 
-output "aem_instance_single" {
+output "aem_instances" {
   value = aem_instance.single.instances
 }
