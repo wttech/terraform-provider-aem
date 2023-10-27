@@ -42,18 +42,24 @@ type InstanceResourceModel struct {
 }
 
 type InstanceStatusItemModel struct {
-	//ID           types.String   `tfsdk:"id"`
-	URL types.String `tfsdk:"url"`
-	//AemVersion   types.String   `tfsdk:"aem_version"`
-	//Attributes   []types.String `tfsdk:"attributes"`
-	//RunModes     []types.String `tfsdk:"run_modes"`
-	//HealthChecks []types.String `tfsdk:"health_checks"`
-	//Dir          types.String   `tfsdk:"dir"`
+	ID         types.String `tfsdk:"id"`
+	URL        types.String `tfsdk:"url"`
+	AemVersion types.String `tfsdk:"aem_version"`
+	Dir        types.String `tfsdk:"dir"`
+	Attributes types.List   `tfsdk:"attributes"`
+	//RunModes     types.List   `tfsdk:"run_modes"`
+	//HealthChecks types.List   `tfsdk:"health_checks"`
 }
 
 func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"url": types.StringType,
+		"id":          types.StringType,
+		"url":         types.StringType,
+		"aem_version": types.StringType,
+		"dir":         types.StringType,
+		"attributes":  types.ListType{ElemType: types.StringType},
+		//"health_checks": types.ListType{ElemType: types.StringType},
+		//"run_modes":     types.ListType{ElemType: types.StringType},
 	}
 }
 
@@ -113,19 +119,19 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						//"id": schema.StringAttribute{
-						//	Computed: true,
-						//},
+						"id": schema.StringAttribute{
+							Computed: true,
+						},
 						"url": schema.StringAttribute{
 							Computed: true,
 						},
-						//"aem_version": schema.StringAttribute{
-						//	Computed: true,
-						//},
-						//"attributes": schema.ListAttribute{
-						//	ElementType: types.StringType,
-						//	Computed:    true,
-						//},
+						"aem_version": schema.StringAttribute{
+							Computed: true,
+						},
+						"attributes": schema.ListAttribute{
+							ElementType: types.StringType,
+							Computed:    true,
+						},
 						//"run_modes": schema.ListAttribute{
 						//	ElementType: types.StringType,
 						//	Computed:    true,
@@ -134,47 +140,13 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						//	ElementType: types.StringType,
 						//	Computed:    true,
 						//},
-						//"dir": schema.StringAttribute{
-						//	Computed: true,
-						//},
+						"dir": schema.StringAttribute{
+							Computed: true,
+						},
 					},
 				},
 			},
 		},
-		//
-		//Attributes: map[string]schema.Attribute{
-		//	"instances": schema.ListNestedAttribute{
-		//		Computed: true,
-		//
-		//		NestedObject: schema.NestedAttributeObject{
-		//			Attributes: map[string]schema.Attribute{
-		//				//"id": schema.StringAttribute{
-		//				//	Computed: true,
-		//				//},
-		//				//"url": schema.StringAttribute{
-		//				//	Computed: true,
-		//				//},
-		//				//"aem_version": schema.StringAttribute{
-		//				//	Computed: true,
-		//				//},
-		//				//"attributes": schema.ListAttribute{
-		//				//	ElementType: types.StringType,
-		//				//	Computed:    true,
-		//				//},
-		//				//"run_modes": schema.ListAttribute{
-		//				//	ElementType: types.StringType,
-		//				//	Computed:    true,
-		//				//},
-		//				//"health_checks": schema.ListAttribute{
-		//				//	ElementType: types.StringType,
-		//				//	Computed:    true,
-		//				//},
-		//				//"dir": schema.StringAttribute{
-		//				//	Computed: true,
-		//				//},
-		//			},
-		//		},
-		//	},
 	}
 }
 
@@ -271,40 +243,33 @@ func (r *InstanceResource) defaultModel() InstanceResourceModel {
 }
 
 func (r *InstanceResource) fillModelWithStatus(ctx context.Context, model *InstanceResourceModel, status InstanceStatus) diag.Diagnostics {
+	var allDiags diag.Diagnostics
+
 	instances := make([]InstanceStatusItemModel, len(status.Data.Instances))
-	for _, instance := range status.Data.Instances {
-		instances = append(instances, InstanceStatusItemModel{
-			URL: types.StringValue(instance.URL),
-		})
+	for i, instance := range status.Data.Instances {
+		attributeList, diags := types.ListValueFrom(ctx, types.StringType, instance.Attributes)
+		allDiags.Append(diags...)
+		//runModeList, diags := types.ListValueFrom(ctx, types.StringType, instance.RunModes)
+		//allDiags.Append(diags...)
+		//healthCheckList, diags := types.ListValueFrom(ctx, types.StringType, instance.HealthChecks)
+		//allDiags.Append(diags...)
+
+		instances[i] = InstanceStatusItemModel{
+			ID:         types.StringValue(instance.ID),
+			URL:        types.StringValue(instance.URL),
+			AemVersion: types.StringValue(instance.AemVersion),
+			Dir:        types.StringValue(instance.Dir),
+			Attributes: attributeList,
+			//RunModes:     runModeList,
+			//HealthChecks: healthCheckList,
+		}
 	}
 	instanceList, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: InstanceStatusItemModel{}.attrTypes()}, instances)
+	allDiags.Append(diags...)
 	model.Instances = instanceList
-	return diags
-}
 
-//func (r *InstanceResource) fillModelWithStatus(model *InstanceResourceModel, status InstanceStatus) {
-//	model.Instances = make([]InstanceStatusItemModel, len(status.Data.Instances))
-//	for i, _ := range status.Data.Instances {
-//		model.Instances[i] = InstanceStatusItemModel{
-//			//ID:  types.StringValue(instance.ID),
-//			//URL: types.StringValue(instance.URL),
-//			//AemVersion:   types.StringValue(instance.AemVersion),
-//			//Attributes:   make([]types.String, len(instance.Attributes)),
-//			//RunModes:     make([]types.String, len(instance.RunModes)),
-//			//HealthChecks: make([]types.String, len(instance.HealthChecks)),
-//			//Dir:          types.StringValue(instance.Dir),
-//		}
-//		//for j, attr := range instance.Attributes {
-//		//	model.Instances[i].Attributes[j] = types.StringValue(attr)
-//		//}
-//		//for j, runMode := range instance.RunModes {
-//		//	model.Instances[i].RunModes[j] = types.StringValue(runMode)
-//		//}
-//		//for j, healthCheck := range instance.HealthChecks {
-//		//	model.Instances[i].HealthChecks[j] = types.StringValue(healthCheck)
-//		//}
-//	}
-//}
+	return allDiags
+}
 
 func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	model := r.defaultModel()
