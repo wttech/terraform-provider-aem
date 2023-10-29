@@ -18,13 +18,11 @@ instance:
         - -Duser.country=US
         - -Duser.timezone=UTC
       start_opts: []
-
       secret_vars:
         - ACME_SECRET=value
       env_vars:
         - ACME_VAR=value
       sling_props: []
-
     local_publish:
       active: true
       http_url: http://127.0.0.1:4503
