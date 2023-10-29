@@ -1,4 +1,4 @@
-package provider
+package utils
 
 import (
 	"crypto/md5"
@@ -8,7 +8,7 @@ import (
 )
 
 // TODO hash with ignoring line endings / OS-independent
-func hashFileMD5(file string) (string, error) {
+func HashFileMD5(file string) (string, error) {
 	// Open the file
 	f, err := os.Open(file)
 	if err != nil {

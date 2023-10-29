@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
+	"github.com/wttech/terraform-provider-aem/internal/provider/instance"
 	"time"
 )
 
@@ -106,7 +107,8 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString("aem/default/etc/aem.yml"),
 					},
 					"config_file_checksum": schema.StringAttribute{
-						Computed: true,
+						Computed:      true,
+						PlanModifiers: []planmodifier.String{instance.ConfigFileChecksumPlanModifier()},
 					},
 					"lib_dir": schema.StringAttribute{
 						MarkdownDescription: "Local path to directory from which AEM library files will be copied to the remote AEM machine",
@@ -150,9 +152,10 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					},
 				},
 				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
 					listplanmodifier.RequiresReplaceIf(func(ctx context.Context, request planmodifier.ListRequest, response *listplanmodifier.RequiresReplaceIfFuncResponse) {
 						// TODO check if: [1] list is not empty; [2] the same instances are still created; [3] dirs have not changed
-						response.RequiresReplace = true
+						// response.RequiresReplace = true
 					}, "If the value of this attribute changes, Terraform will destroy and recreate the resource.", "If the value of this attribute changes, Terraform will destroy and recreate the resource."),
 				},
 			},
@@ -200,16 +203,9 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		return
 	}
 
-	md5, err := hashFileMD5(model.Compose.ConfigFile.ValueString())
-	if err != nil {
-		diags.AddError("Unable to calculate MD5 checksum for AEM configuration file", fmt.Sprintf("%s", err))
-		return
-	}
-	model.Compose.ConfigFileChecksum = types.StringValue(md5)
-
 	tflog.Info(ctx, "Started setting up AEM instance resource")
 
-	ic, err := r.Client(ctx, model, time.Minute*5)
+	ic, err := r.client(ctx, model, time.Minute*5)
 	if err != nil {
 		diags.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 		return
@@ -301,14 +297,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	md5, err := hashFileMD5(model.Compose.ConfigFile.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to calculate MD5 checksum for AEM configuration file", fmt.Sprintf("%s", err))
-		return
-	}
-	model.Compose.ConfigFileChecksum = types.StringValue(md5)
-
-	ic, err := r.Client(ctx, model, time.Second*15)
+	ic, err := r.client(ctx, model, time.Second*15)
 	if err != nil {
 		resp.Diagnostics.AddWarning("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 	} else {
@@ -345,10 +334,11 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// TODO implement it properly
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (r *InstanceResource) Client(ctx context.Context, model InstanceResourceModel, timeout time.Duration) (*InstanceClient, error) {
+func (r *InstanceResource) client(ctx context.Context, model InstanceResourceModel, timeout time.Duration) (*InstanceClient, error) {
 	tflog.Info(ctx, "Connecting to AEM instance machine")
 
 	typeName := model.Client.Type.ValueString()
