@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -10,29 +12,21 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
+	"time"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &InstanceResource{}
 var _ resource.ResourceWithImportState = &InstanceResource{}
 
-type InstanceCreateContext ClientCreateContext[InstanceResourceModel]
-
-func (ic InstanceCreateContext) DataDir() string {
-	return ic.data.Compose.DataDir.ValueString()
-}
-
 func NewInstanceResource() resource.Resource {
 	return &InstanceResource{}
 }
-
-// InstanceResource defines the resource implementation.
 
 type InstanceResource struct {
 	clientManager *client.ClientManager
 }
 
-// InstanceResourceModel describes the resource data model.
 type InstanceResourceModel struct {
 	Client struct {
 		Type     types.String `tfsdk:"type"`
@@ -45,6 +39,27 @@ type InstanceResourceModel struct {
 		LibDir     types.String `tfsdk:"lib_dir"`
 		InstanceId types.String `tfsdk:"instance_id"`
 	} `tfsdk:"compose"`
+	Instances types.List `tfsdk:"instances"`
+}
+
+type InstanceStatusItemModel struct {
+	ID         types.String `tfsdk:"id"`
+	URL        types.String `tfsdk:"url"`
+	AemVersion types.String `tfsdk:"aem_version"`
+	Dir        types.String `tfsdk:"dir"`
+	Attributes types.List   `tfsdk:"attributes"`
+	RunModes   types.List   `tfsdk:"run_modes"`
+}
+
+func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"id":          types.StringType,
+		"url":         types.StringType,
+		"aem_version": types.StringType,
+		"dir":         types.StringType,
+		"attributes":  types.ListType{ElemType: types.StringType},
+		"run_modes":   types.ListType{ElemType: types.StringType},
+	}
 }
 
 func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -97,6 +112,36 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 		},
+
+		Attributes: map[string]schema.Attribute{
+			"instances": schema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.StringAttribute{
+							Computed: true,
+						},
+						"url": schema.StringAttribute{
+							Computed: true,
+						},
+						"aem_version": schema.StringAttribute{
+							Computed: true,
+						},
+						"attributes": schema.ListAttribute{
+							ElementType: types.StringType,
+							Computed:    true,
+						},
+						"run_modes": schema.ListAttribute{
+							ElementType: types.StringType,
+							Computed:    true,
+						},
+						"dir": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -124,149 +169,131 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 }
 
 func (r *InstanceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-
-	var data InstanceResourceModel
+	model := r.defaultModel()
 
 	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	diags := req.Plan.Get(ctx, &model)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	tflog.Info(ctx, "Creating AEM instance resource")
 
-	tflog.Info(ctx, "Connecting to AEM instance machine")
-	typeName := data.Client.Type.ValueString()
-	var settings map[string]string
-	data.Client.Settings.ElementsAs(ctx, &settings, true)
-
-	cl, err := r.clientManager.Make(typeName, settings)
+	ic, err := r.Client(ctx, model, time.Minute*5)
 	if err != nil {
-		resp.Diagnostics.AddError("Unable to determine AEM instance client", fmt.Sprintf("%s", err))
+		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
-
-	cl.Env["AEM_CLI_VERSION"] = data.Compose.Version.ValueString()
-	if err := cl.SetupEnv(); err != nil {
-		resp.Diagnostics.AddError("Unable to setup shell environment script", fmt.Sprintf("%s", err))
-		return
-	}
-
-	if err := cl.ConnectWithRetry(func() { tflog.Info(ctx, "Awaiting connection to AEM instance machine") }); err != nil {
-		resp.Diagnostics.AddError("Unable to connect to AEM instance machine", fmt.Sprintf("%s", err))
-		return
-	}
-	tflog.Info(ctx, "Connected to AEM instance machine")
-
-	ic := InstanceCreateContext{cl, ctx, data, req, resp}
-
-	defer func(client *client.Client) {
-		err := client.Disconnect()
+	defer func(ic *InstanceClient) {
+		err := ic.Close()
 		if err != nil {
-			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance machine", fmt.Sprintf("%s", err))
+			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
 		}
-	}(cl)
+	}(ic)
 
-	if !r.prepareDataDir(ic) {
+	if err := ic.prepareDataDir(); err != nil {
+		resp.Diagnostics.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
 		return
 	}
-	if !r.installCompose(ic) {
+	if err := ic.installComposeWrapper(); err != nil {
+		resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
 	}
-	if !r.copyConfigFile(ic) {
+	if err := ic.copyConfigFile(); err != nil {
+		resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
 		return
 	}
-	if !r.copyLibraryDir(ic) {
+	if err := ic.copyLibraryDir(); err != nil {
+		resp.Diagnostics.AddError("Unable to copy AEM library dir", fmt.Sprintf("%s", err))
 		return
 	}
-	if !r.launch(ic) {
+	if err := ic.create(); err != nil {
+		resp.Diagnostics.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
+		return
+	}
+	if err := ic.launch(); err != nil {
+		resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
 
-	// For the purposes of this example code, hardcoding a response value to
-	// save into the Terraform state.
-	// data.Id = types.StringValue("example-id")
-
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
 	tflog.Info(ctx, "Created AEM instance resource")
 
+	status, err := ic.ReadStatus()
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
+		return
+	}
+
+	resp.Diagnostics.Append(r.fillModelWithStatus(ctx, &model, status)...)
+
 	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
-// TODO chown data dir to ssh user or aem user (create him maybe)
-func (r *InstanceResource) prepareDataDir(ic InstanceCreateContext) bool {
-	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
-		ic.resp.Diagnostics.AddError("Cannot clean up AEM data directory", fmt.Sprintf("%s", err))
-		return false
-	}
-
-	if _, err := ic.cl.RunShell(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
-		ic.resp.Diagnostics.AddError("Cannot create AEM data directory", fmt.Sprintf("%s", err))
-		return false
-	}
-	return true
+func (r *InstanceResource) defaultModel() InstanceResourceModel {
+	model := InstanceResourceModel{}
+	model.Instances = types.ListValueMust(types.ObjectType{AttrTypes: InstanceStatusItemModel{}.attrTypes()}, []attr.Value{})
+	return model
 }
 
-func (r *InstanceResource) installCompose(ic InstanceCreateContext) bool {
-	out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s https://raw.githubusercontent.com/wttech/aemc/main/project-init.sh | sh", ic.DataDir()))
-	tflog.Info(ic.ctx, string(out))
-	if err != nil {
-		ic.resp.Diagnostics.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
-		return false
+func (r *InstanceResource) fillModelWithStatus(ctx context.Context, model *InstanceResourceModel, status InstanceStatus) diag.Diagnostics {
+	var allDiags diag.Diagnostics
+
+	instances := make([]InstanceStatusItemModel, len(status.Data.Instances))
+	for i, instance := range status.Data.Instances {
+		attributeList, diags := types.ListValueFrom(ctx, types.StringType, instance.Attributes)
+		allDiags.Append(diags...)
+		runModeList, diags := types.ListValueFrom(ctx, types.StringType, instance.RunModes)
+		allDiags.Append(diags...)
+
+		instances[i] = InstanceStatusItemModel{
+			ID:         types.StringValue(instance.ID),
+			URL:        types.StringValue(instance.URL),
+			AemVersion: types.StringValue(instance.AemVersion),
+			Dir:        types.StringValue(instance.Dir),
+			Attributes: attributeList,
+			RunModes:   runModeList,
+		}
 	}
-	return true
-}
+	instanceList, diags := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: InstanceStatusItemModel{}.attrTypes()}, instances)
+	allDiags.Append(diags...)
+	model.Instances = instanceList
 
-func (r *InstanceResource) copyConfigFile(ic InstanceCreateContext) bool {
-	configFile := ic.data.Compose.ConfigFile.ValueString()
-	if err := ic.cl.FileCopy(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir()), true); err != nil {
-		ic.resp.Diagnostics.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
-		return false
-	}
-	return true
-}
-
-func (r *InstanceResource) copyLibraryDir(ic InstanceCreateContext) bool {
-	localLibDir := ic.data.Compose.LibDir.ValueString()
-	remoteLibDir := fmt.Sprintf("%s/aem/home/lib", ic.DataDir())
-	if err := ic.cl.DirCopy(localLibDir, remoteLibDir, false); err != nil {
-		ic.resp.Diagnostics.AddError("Unable to copy AEM library dir", fmt.Sprintf("%s", err))
-		return false
-	}
-	return true
-}
-
-func (r *InstanceResource) launch(ic InstanceCreateContext) bool {
-	tflog.Info(ic.ctx, "Launching AEM instance(s)")
-
-	// TODO register systemd service instead and start it
-	ymlBytes, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance launch", ic.DataDir()))
-
-	if err != nil {
-		ic.resp.Diagnostics.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
-		return false
-	}
-	yml := string(ymlBytes) // TODO parse it and add to state
-
-	tflog.Info(ic.ctx, "Launched AEM instance(s)")
-	tflog.Info(ic.ctx, yml) // TODO parse output; add it as data to the state; consider checking 'changed' flag from AEMCLI
-	return true
+	return allDiags
 }
 
 func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data InstanceResourceModel
+	model := r.defaultModel()
 
 	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-
+	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+	ic, err := r.Client(ctx, model, time.Second*15)
+	if err != nil {
+		resp.Diagnostics.AddWarning("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
+	} else {
+		defer func(ic *InstanceClient) {
+			err := ic.Close()
+			if err != nil {
+				resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
+			}
+		}(ic)
+
+		status, err := ic.ReadStatus()
+		if err != nil { //
+			resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
+			return
+		}
+
+		resp.Diagnostics.Append(r.fillModelWithStatus(ctx, &model, status)...)
+	}
+
 	// Save updated data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
 }
 
 func (r *InstanceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -298,4 +325,31 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 
 func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *InstanceResource) Client(ctx context.Context, data InstanceResourceModel, timeout time.Duration) (*InstanceClient, error) {
+	tflog.Info(ctx, "Connecting to AEM instance machine")
+
+	typeName := data.Client.Type.ValueString()
+	var settings map[string]string
+	data.Client.Settings.ElementsAs(ctx, &settings, true)
+
+	cl, err := r.clientManager.Make(typeName, settings)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cl.ConnectWithRetry(timeout, func() { tflog.Info(ctx, "Awaiting connection to AEM instance machine") }); err != nil {
+		return nil, err
+	}
+
+	cl.Env["AEM_CLI_VERSION"] = data.Compose.Version.ValueString()
+	cl.EnvDir = "/tmp" // TODO make configurable; or just in user home dir './' ?
+
+	if err := cl.SetupEnv(); err != nil {
+		return nil, err
+	}
+
+	tflog.Info(ctx, "Connected to AEM instance machine")
+	return &InstanceClient{cl, ctx, data}, nil
 }

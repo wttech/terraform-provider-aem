@@ -40,8 +40,7 @@ func (c Client) Connect() error {
 	return c.connection.Connect()
 }
 
-func (c Client) ConnectWithRetry(callback func()) error {
-	timeout := time.Minute * 5
+func (c Client) ConnectWithRetry(timeout time.Duration, callback func()) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	for {
@@ -73,7 +72,7 @@ func (c Client) Run(cmdLine []string) (*goph.Cmd, error) {
 
 func (c Client) SetupEnv() error {
 	file, err := os.CreateTemp(os.TempDir(), "tf-provider-aem-env-*.sh")
-	path := os.TempDir() + "/" + file.Name()
+	path := file.Name()
 	defer func() { _ = file.Close(); _ = os.Remove(path) }()
 	if err != nil {
 		return fmt.Errorf("cannot create temporary file for remote shell environment script: %w", err)
@@ -132,7 +131,7 @@ func (c Client) DirEnsure(path string) error {
 func (c Client) FileExists(path string) (bool, error) {
 	out, err := c.RunShell(fmt.Sprintf("test -f %s && echo '0' || echo '1'", path))
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("cannot check if file exists '%s': %w", path, err)
 	}
 	return strings.TrimSpace(string(out)) == "0", nil
 }
@@ -145,6 +144,14 @@ func (c Client) FileMove(oldPath string, newPath string) error {
 		return fmt.Errorf("cannot move file '%s' to '%s': %w", oldPath, newPath, err)
 	}
 	return nil
+}
+
+func (c Client) DirExists(path string) (bool, error) {
+	out, err := c.RunShell(fmt.Sprintf("test -d %s && echo '0' || echo '1'", path))
+	if err != nil {
+		return false, fmt.Errorf("cannot check if directory exists '%s': %w", path, err)
+	}
+	return strings.TrimSpace(string(out)) == "0", nil
 }
 
 func (c Client) DirCopy(localPath string, remotePath string, override bool) error {

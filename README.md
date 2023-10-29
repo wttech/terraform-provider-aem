@@ -137,7 +137,11 @@ make testacc
 
 Run command: `sh develop.sh <example_path> <tf_args>`.
 
-For example: `sh develop.sh examples/ssh plan`.
+For example: 
+
+- `sh develop.sh examples/ssh plan`
+- `sh develop.sh examples/ssh apply -auto-approve`
+- `sh develop.sh examples/ssh destroy -auto-approve`
 
 ## Debugging the Provider
 
