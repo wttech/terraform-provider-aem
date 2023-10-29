@@ -22,3 +22,7 @@ resource "aem_instance" "single" {
 output "aem_instances" {
   value = aem_instance.single.instances
 }
+
+output "aem_config_file_checksum" {
+  value = aem_instance.single.compose.config_file_checksum
+}
