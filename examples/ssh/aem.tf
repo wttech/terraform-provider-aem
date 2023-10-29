@@ -11,13 +11,12 @@ resource "aem_instance" "single" {
     }
   }
   compose {
-    version     = "1.5.7"
+    version     = "1.5.8"
     data_dir    = "/home/ec2-user/aemc"
     lib_dir     = "aem/home/lib"
     config_file = "aem/default/etc/aem.yml"
   }
 }
-
 
 output "aem_instances" {
   value = aem_instance.single.instances
