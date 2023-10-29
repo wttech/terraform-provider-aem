@@ -40,8 +40,7 @@ func (c Client) Connect() error {
 	return c.connection.Connect()
 }
 
-func (c Client) ConnectWithRetry(callback func()) error {
-	timeout := time.Minute * 5
+func (c Client) ConnectWithRetry(timeout time.Duration, callback func()) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	for {

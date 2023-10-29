@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
+	"time"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -179,7 +180,7 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 
 	tflog.Info(ctx, "Creating AEM instance resource")
 
-	ic, err := r.Client(ctx, model)
+	ic, err := r.Client(ctx, model, time.Minute*5)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 		return
@@ -231,7 +232,9 @@ func (r *InstanceResource) Create(ctx context.Context, req resource.CreateReques
 }
 
 func (r *InstanceResource) defaultModel() InstanceResourceModel {
-	return InstanceResourceModel{}
+	model := InstanceResourceModel{}
+	model.Instances = types.ListValueMust(types.ObjectType{AttrTypes: InstanceStatusItemModel{}.attrTypes()}, []attr.Value{})
+	return model
 }
 
 func (r *InstanceResource) fillModelWithStatus(ctx context.Context, model *InstanceResourceModel, status InstanceStatus) diag.Diagnostics {
@@ -269,25 +272,25 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	ic, err := r.Client(ctx, model)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
-		return
-	}
-	defer func(ic *InstanceClient) {
-		err := ic.Close()
-		if err != nil {
-			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
+	ic, err := r.Client(ctx, model, time.Second*15)
+	if err == nil {
+		resp.Diagnostics.AddWarning("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
+	} else {
+		defer func(ic *InstanceClient) {
+			err := ic.Close()
+			if err != nil {
+				resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
+			}
+		}(ic)
+
+		status, err := ic.ReadStatus()
+		if err != nil { //
+			resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
+			return
 		}
-	}(ic)
 
-	status, err := ic.ReadStatus()
-	if err != nil { //
-		resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
-		return
+		resp.Diagnostics.Append(r.fillModelWithStatus(ctx, &model, status)...)
 	}
-
-	resp.Diagnostics.Append(r.fillModelWithStatus(ctx, &model, status)...)
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &model)...)
@@ -324,7 +327,7 @@ func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportS
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func (r *InstanceResource) Client(ctx context.Context, data InstanceResourceModel) (*InstanceClient, error) {
+func (r *InstanceResource) Client(ctx context.Context, data InstanceResourceModel, timeout time.Duration) (*InstanceClient, error) {
 	tflog.Info(ctx, "Connecting to AEM instance machine")
 
 	typeName := data.Client.Type.ValueString()
@@ -336,7 +339,7 @@ func (r *InstanceResource) Client(ctx context.Context, data InstanceResourceMode
 		return nil, err
 	}
 
-	if err := cl.ConnectWithRetry(func() { tflog.Info(ctx, "Awaiting connection to AEM instance machine") }); err != nil {
+	if err := cl.ConnectWithRetry(timeout, func() { tflog.Info(ctx, "Awaiting connection to AEM instance machine") }); err != nil {
 		return nil, err
 	}
 
