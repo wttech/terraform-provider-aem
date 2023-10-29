@@ -273,7 +273,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	ic, err := r.Client(ctx, model, time.Second*15)
-	if err == nil {
+	if err != nil {
 		resp.Diagnostics.AddWarning("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 	} else {
 		defer func(ic *InstanceClient) {
