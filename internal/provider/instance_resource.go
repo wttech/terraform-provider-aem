@@ -322,15 +322,39 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 }
 
 func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data InstanceResourceModel
+	model := r.newModel()
 
 	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// TODO ... delete the resource
+	tflog.Info(ctx, "Started deleting AEM instance resource")
+
+	ic, err := r.client(ctx, model, time.Minute*5)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
+		return
+	}
+	defer func(ic *InstanceClient) {
+		err := ic.Close()
+		if err != nil {
+			resp.Diagnostics.AddWarning("Unable to disconnect from AEM instance", fmt.Sprintf("%s", err))
+		}
+	}(ic)
+
+	if err := ic.terminate(); err != nil {
+		resp.Diagnostics.AddError("Unable to terminate AEM instance", fmt.Sprintf("%s", err))
+		return
+	}
+
+	if err := ic.deleteDataDir(); err != nil {
+		resp.Diagnostics.AddError("Unable to delete AEM data directory", fmt.Sprintf("%s", err))
+		return
+	}
+
+	tflog.Info(ctx, "Finished deleting AEM instance resource")
 }
 
 func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

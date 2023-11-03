@@ -92,6 +92,30 @@ func (ic *InstanceClient) launch() error {
 	return nil
 }
 
+// TODO consider using "delete --kill"
+func (ic *InstanceClient) terminate() error {
+	tflog.Info(ic.ctx, "Terminating AEM instance(s)")
+
+	// TODO use systemd service instead and stop it
+	textOut, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance terminate", ic.DataDir()))
+	if err != nil {
+		return fmt.Errorf("unable to terminate AEM instance: %w", err)
+	}
+
+	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
+	tflog.Info(ic.ctx, "Terminated AEM instance(s)")
+	tflog.Info(ic.ctx, textStr) // TODO consider checking 'changed' flag here if needed
+
+	return nil
+}
+
+func (ic *InstanceClient) deleteDataDir() error {
+	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
+		return fmt.Errorf("cannot delete AEM data directory: %w", err)
+	}
+	return nil
+}
+
 type InstanceStatus struct {
 	Data struct {
 		Instances []struct {
