@@ -299,7 +299,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	ic, err := r.client(ctx, model, time.Second*15)
 	if err != nil {
-		resp.Diagnostics.AddWarning("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
+		tflog.Info(ctx, "Cannot read AEM instance state as it is not possible to connect at the moment. Possible reasons: machine IP change is in progress, machine is not yet created or booting up, etc.")
 	} else {
 		defer func(ic *InstanceClient) {
 			err := ic.Close()
