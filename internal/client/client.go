@@ -42,17 +42,17 @@ func (c Client) Connect() error {
 
 func (c Client) ConnectWithRetry(timeout time.Duration, callback func()) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	var err error
 	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("cannot connect - awaiting timeout reached '%s'", timeout)
+			return fmt.Errorf("cannot connect - awaiting timeout reached '%s': %w", timeout, err)
 		default:
-			err := c.Connect()
-			if err == nil {
+			if err = c.Connect(); err == nil {
 				return nil
 			}
-			time.Sleep(time.Second)
+			time.Sleep(3 * time.Second)
 			callback()
 		}
 	}
@@ -185,6 +185,7 @@ func (c Client) FileDelete(path string) error {
 	return nil
 }
 
+// TODO seems that if file exists it is not skipping copying file
 func (c Client) FileCopy(localPath string, remotePath string, override bool) error {
 	if !override {
 		exists, err := c.FileExists(remotePath)

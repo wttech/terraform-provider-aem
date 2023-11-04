@@ -21,9 +21,8 @@ type SSHConnection struct {
 func (s *SSHConnection) Connect() error {
 	auth, err := goph.Key(s.privateKeyFile, s.passphrase)
 	if err != nil {
-		return fmt.Errorf("SSH: cannot get auth using private key '%s': %w", s.privateKeyFile, err)
+		return fmt.Errorf("ssh: cannot get auth using private key '%s': %w", s.privateKeyFile, err)
 	}
-	// TODO loop until establishment of connection
 	client, err := goph.NewConn(&goph.Config{
 		User:     s.user,
 		Addr:     s.host,
@@ -33,7 +32,7 @@ func (s *SSHConnection) Connect() error {
 		Callback: ssh.InsecureIgnoreHostKey(), // TODO make it secure by default
 	})
 	if err != nil {
-		return fmt.Errorf("SSH: cannot connect to host '%s': %w", s.host, err)
+		return fmt.Errorf("ssh: cannot connect to host '%s': %w", s.host, err)
 	}
 	s.client = client
 	return nil
@@ -44,7 +43,7 @@ func (s *SSHConnection) Disconnect() error {
 		return nil
 	}
 	if err := s.client.Close(); err != nil {
-		return fmt.Errorf("SSH: cannot disconnect from host '%s': %w", s.host, err)
+		return fmt.Errorf("ssh: cannot disconnect from host '%s': %w", s.host, err)
 	}
 	return nil
 }
@@ -53,7 +52,7 @@ func (s *SSHConnection) Command(cmdLine []string) (*goph.Cmd, error) {
 	name, args := s.splitCommandLine(cmdLine)
 	cmd, err := s.client.Command(name, args...)
 	if err != nil {
-		return nil, fmt.Errorf("SSH: cannot create command '%s' for host '%s': %w", strings.Join(cmdLine, " "), s.host, err)
+		return nil, fmt.Errorf("ssh: cannot create command '%s' for host '%s': %w", strings.Join(cmdLine, " "), s.host, err)
 	}
 	return cmd, nil
 }
@@ -69,7 +68,7 @@ func (s *SSHConnection) splitCommandLine(cmdLine []string) (string, []string) {
 
 func (s *SSHConnection) CopyFile(localPath string, remotePath string) error {
 	if err := s.client.Upload(localPath, remotePath); err != nil {
-		return fmt.Errorf("SSH: cannot copy local file '%s' to remote path '%s' on host '%s': %w", localPath, remotePath, s.host, err)
+		return fmt.Errorf("ssh: cannot copy local file '%s' to remote path '%s' on host '%s': %w", localPath, remotePath, s.host, err)
 	}
 	return nil
 }
