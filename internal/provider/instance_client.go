@@ -156,15 +156,15 @@ func (ic *InstanceClient) runHook(name string, dir, cmdScript string) error {
 		return nil
 	}
 
-	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' started", name))
+	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance hook '%s'", name))
 
 	textOut, err := ic.cl.RunShellScriptWithEnv(dir, cmdScript)
 	if err != nil {
-		return fmt.Errorf("unable to run hook '%s' properly: %w", name, err)
+		return fmt.Errorf("unable to execute hook '%s' properly: %w", name, err)
 	}
 	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
 
-	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' finished", name))
+	tflog.Info(ic.ctx, fmt.Sprintf("Executed instance hook '%s'", name))
 	tflog.Info(ic.ctx, textStr)
 
 	return nil
