@@ -241,15 +241,15 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		}
 	}(ic)
 
+	if err := ic.prepareDataDir(); err != nil {
+		diags.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
+		return
+	}
 	if create {
 		if err := ic.bootstrap(); err != nil {
 			diags.AddError("Unable to bootstrap AEM machine", fmt.Sprintf("%s", err))
 			return
 		}
-	}
-	if err := ic.prepareDataDir(); err != nil {
-		diags.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
-		return
 	}
 	if err := ic.installComposeWrapper(); err != nil {
 		diags.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))

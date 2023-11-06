@@ -21,8 +21,8 @@ resource "aem_instance" "single" {
       #!/bin/sh
       sudo yum install -y unzip && \
       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-      unzip awscliv2.zip && \
-      sudo ./aws/install && \
+      unzip -q awscliv2.zip && \
+      sudo ./aws/install --update && \
       mkdir -p "/home/ec2-user/aemc/aem/home/lib" && \
       aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "/home/ec2-user/aemc/aem/home/lib"
     EOF

@@ -105,7 +105,7 @@ func (c Client) RunShellWithEnv(cmd string) ([]byte, error) {
 	return c.RunShell(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
 }
 
-func (c Client) RunShellScriptWithEnv(cmdScript string) ([]byte, error) {
+func (c Client) RunShellScriptWithEnv(dir string, cmdScript string) ([]byte, error) {
 	file, err := os.CreateTemp(os.TempDir(), "tf-provider-aem-script-*.sh")
 	path := file.Name()
 	defer func() { _ = file.Close(); _ = os.Remove(path) }()
@@ -120,7 +120,7 @@ func (c Client) RunShellScriptWithEnv(cmdScript string) ([]byte, error) {
 	if err := c.FileCopy(path, remotePath, true); err != nil {
 		return nil, err
 	}
-	return c.RunShellWithEnv(fmt.Sprintf("sh %s", remotePath))
+	return c.RunShellWithEnv(fmt.Sprintf("cd %s && sh %s", dir, remotePath))
 }
 
 func (c Client) RunShell(cmd string) ([]byte, error) {
