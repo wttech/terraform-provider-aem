@@ -3,24 +3,6 @@ resource "aws_instance" "aem_single" {
   instance_type        = "m5.xlarge"
   iam_instance_profile = aws_iam_instance_profile.aem_ec2.name
   tags                 = local.tags
-
-  user_data = <<-EOF
-    #!/bin/sh
-
-    echo "Installing prerequisites"
-    yum install -y unzip
-    echo "Installed prerequisites"
-
-    echo "Installing AWS CLI"
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    ./aws/install
-    echo "Installed AWS CLI"
-
-    echo "Downloading AEM library files"
-    aws s3 cp --recursive "s3://aemc/instance/classic/" "/home/ec2-user/aemc/aem/home/lib"
-    echo "Downloaded AEM library files"
-  EOF
 }
 
 resource "aws_iam_instance_profile" "aem_ec2" {
