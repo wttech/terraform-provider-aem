@@ -286,7 +286,7 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 
 	status, err := ic.ReadStatus()
 	if err != nil {
-		diags.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
+		diags.AddError("Unable to read AEM instance status", fmt.Sprintf("%s", err))
 		return
 	}
 
@@ -350,7 +350,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 		status, err := ic.ReadStatus()
 		if err != nil { //
-			resp.Diagnostics.AddError("Unable to read AEM instance data", fmt.Sprintf("%s", err))
+			resp.Diagnostics.AddError("Unable to read AEM instance status", fmt.Sprintf("%s", err))
 			return
 		}
 
