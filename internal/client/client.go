@@ -16,7 +16,7 @@ type Client struct {
 	connection Connection
 
 	Env    map[string]string
-	EnvDir string
+	EnvDir string // TODO this is more like tmp script dir
 }
 
 func (c Client) TypeName() string {
@@ -42,17 +42,17 @@ func (c Client) Connect() error {
 
 func (c Client) ConnectWithRetry(timeout time.Duration, callback func()) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	var err error
 	defer cancel()
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("cannot connect - awaiting timeout reached '%s'", timeout)
+			return fmt.Errorf("cannot connect - awaiting timeout reached '%s': %w", timeout, err)
 		default:
-			err := c.Connect()
-			if err == nil {
+			if err = c.Connect(); err == nil {
 				return nil
 			}
-			time.Sleep(time.Second)
+			time.Sleep(3 * time.Second)
 			callback()
 		}
 	}
@@ -103,6 +103,24 @@ func (c Client) envScriptString() string {
 
 func (c Client) RunShellWithEnv(cmd string) ([]byte, error) {
 	return c.RunShell(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
+}
+
+func (c Client) RunShellScriptWithEnv(dir string, cmdScript string) ([]byte, error) {
+	file, err := os.CreateTemp(os.TempDir(), "tf-provider-aem-script-*.sh")
+	path := file.Name()
+	defer func() { _ = file.Close(); _ = os.Remove(path) }()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create temporary file for remote shell script: %w", err)
+	}
+	if _, err := file.WriteString(cmdScript); err != nil {
+		return nil, fmt.Errorf("cannot write temporary file for remote shell script: %w", err)
+	}
+	remotePath := fmt.Sprintf("%s/%s", c.EnvDir, filepath.Base(file.Name()))
+	defer func() { _ = c.FileDelete(remotePath) }()
+	if err := c.FileCopy(path, remotePath, true); err != nil {
+		return nil, err
+	}
+	return c.RunShellWithEnv(fmt.Sprintf("cd %s && sh %s", dir, remotePath))
 }
 
 func (c Client) RunShell(cmd string) ([]byte, error) {
@@ -185,6 +203,7 @@ func (c Client) FileDelete(path string) error {
 	return nil
 }
 
+// TODO seems that if file exists it is not skipping copying file
 func (c Client) FileCopy(localPath string, remotePath string, override bool) error {
 	if !override {
 		exists, err := c.FileExists(remotePath)

@@ -18,11 +18,9 @@ func (ic *InstanceClient) Close() error {
 
 // TODO chown data dir to ssh user or 'aem' user (create him maybe)
 func (ic *InstanceClient) prepareDataDir() error {
-	/* TODO to avoid re-uploading library files (probably temporary)
 	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot clean up AEM data directory: %w", err)
 	}
-	*/
 	if _, err := ic.cl.RunShell(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot create AEM data directory: %w", err)
 	}
@@ -140,4 +138,37 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 		return status, fmt.Errorf("unable to parse AEM instance status: %w", err)
 	}
 	return status, nil
+}
+
+// TODO when create fails this could be run twice; how about protecting it with lock?
+func (ic *InstanceClient) bootstrap() error {
+	return ic.runHook("bootstrap", ic.data.Hook.Bootstrap.ValueString())
+}
+
+// TODO when create fails this could be run twice; how about protecting it with lock?
+func (ic *InstanceClient) initialize() error {
+	return ic.runHook("initialize", ic.data.Hook.Initialize.ValueString())
+}
+
+func (ic *InstanceClient) provision() error {
+	return ic.runHook("provision", ic.data.Hook.Provision.ValueString())
+}
+
+func (ic *InstanceClient) runHook(name string, cmdScript string) error {
+	if cmdScript == "" {
+		return nil
+	}
+
+	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' started", name))
+
+	textOut, err := ic.cl.RunShellScriptWithEnv(ic.DataDir(), cmdScript)
+	if err != nil {
+		return fmt.Errorf("unable to run hook '%s' properly: %w", name, err)
+	}
+	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
+
+	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' finished", name))
+	tflog.Info(ic.ctx, textStr)
+
+	return nil
 }

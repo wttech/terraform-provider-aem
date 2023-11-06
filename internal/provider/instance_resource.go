@@ -45,6 +45,11 @@ type InstanceResourceModel struct {
 		LibDir             types.String `tfsdk:"lib_dir"`
 		InstanceId         types.String `tfsdk:"instance_id"`
 	} `tfsdk:"compose"`
+	Hook struct {
+		Bootstrap  types.String `tfsdk:"bootstrap"`
+		Initialize types.String `tfsdk:"initialize"`
+		Provision  types.String `tfsdk:"provision"`
+	} `tfsdk:"hook"`
 	Instances types.List `tfsdk:"instances"`
 }
 
@@ -122,6 +127,25 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					},
 				},
 			},
+			"hook": schema.SingleNestedBlock{
+				MarkdownDescription: "Scripts executed on the remote AEM machine at key stages of the AEM instance lifecycle",
+				Attributes: map[string]schema.Attribute{
+					"bootstrap": schema.StringAttribute{
+						MarkdownDescription: "Executed once after connecting to the instance. Forces instance recreation if changed. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc.",
+						Optional:            true,
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"initialize": schema.StringAttribute{
+						MarkdownDescription: "Executed once after initializing AEM Compose but before launching the instance. Forces instance recreation if changed. Can be used for restoring instances from backup.",
+						Optional:            true,
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
+					"provision": schema.StringAttribute{
+						MarkdownDescription: "Executed when the instance is launched. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
+						Optional:            true,
+					},
+				},
+			},
 		},
 
 		Attributes: map[string]schema.Attribute{
@@ -187,14 +211,14 @@ func (r *InstanceResource) Configure(ctx context.Context, req resource.Configure
 }
 
 func (r *InstanceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	r.createOrUpdate(ctx, &req.Plan, &resp.Diagnostics, &resp.State)
+	r.createOrUpdate(ctx, &req.Plan, &resp.Diagnostics, &resp.State, true)
 }
 
 func (r *InstanceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	r.createOrUpdate(ctx, &req.Plan, &resp.Diagnostics, &resp.State)
+	r.createOrUpdate(ctx, &req.Plan, &resp.Diagnostics, &resp.State, false)
 }
 
-func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan, diags *diag.Diagnostics, state *tfsdk.State) {
+func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan, diags *diag.Diagnostics, state *tfsdk.State, create bool) {
 	model := r.newModel()
 
 	// Read Terraform plan data into the model
@@ -221,6 +245,12 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		diags.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
 		return
 	}
+	if create {
+		if err := ic.bootstrap(); err != nil {
+			diags.AddError("Unable to bootstrap AEM machine", fmt.Sprintf("%s", err))
+			return
+		}
+	}
 	if err := ic.installComposeWrapper(); err != nil {
 		diags.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
@@ -233,12 +263,22 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		diags.AddError("Unable to copy AEM library dir", fmt.Sprintf("%s", err))
 		return
 	}
+	if create {
+		if err := ic.initialize(); err != nil {
+			diags.AddError("Unable to initialize AEM instance", fmt.Sprintf("%s", err))
+			return
+		}
+	}
 	if err := ic.create(); err != nil {
 		diags.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
 	if err := ic.launch(); err != nil {
 		diags.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
+		return
+	}
+	if err := ic.provision(); err != nil {
+		diags.AddError("Unable to provision AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
 
