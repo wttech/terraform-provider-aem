@@ -403,9 +403,9 @@ func (r *InstanceResource) ImportState(ctx context.Context, req resource.ImportS
 }
 
 func (r *InstanceResource) client(ctx context.Context, model InstanceResourceModel, timeout time.Duration) (*InstanceClient, error) {
-	tflog.Info(ctx, "Connecting to AEM instance machine")
-
 	typeName := model.Client.Type.ValueString()
+	tflog.Info(ctx, fmt.Sprintf("Connecting to AEM instance machine using %s", typeName))
+
 	var settings map[string]string
 	model.Client.Settings.ElementsAs(ctx, &settings, true)
 
@@ -425,6 +425,6 @@ func (r *InstanceResource) client(ctx context.Context, model InstanceResourceMod
 		return nil, err
 	}
 
-	tflog.Info(ctx, "Connected to AEM instance machine")
+	tflog.Info(ctx, fmt.Sprintf("Connected to AEM instance machine using %s", cl.Connection().Info()))
 	return &InstanceClient{cl, ctx, model}, nil
 }

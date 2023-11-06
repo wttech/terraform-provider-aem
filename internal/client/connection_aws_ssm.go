@@ -7,6 +7,11 @@ type AWSSSMConnection struct {
 	Region     string
 }
 
+func (A AWSSSMConnection) Info() string {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (A AWSSSMConnection) Connect() error {
 	//TODO implement me
 	panic("implement me")
