@@ -7,6 +7,19 @@ resource "aws_instance" "aem_single" {
   tags                        = local.tags
 }
 
+resource "aws_ebs_volume" "aem_single_data" {
+  availability_zone = aws_instance.aem_single.availability_zone
+  size = 128
+  type = "gp2"
+  tags = local.tags
+}
+
+resource "aws_volume_attachment" "aem_single_data" {
+  device_name = "/dev/xvdf"
+  volume_id   = aws_ebs_volume.aem_single_data.id
+  instance_id = aws_instance.aem_single.id
+}
+
 data "tls_public_key" "main" {
   private_key_pem = file("ec2-key.cer")
 }

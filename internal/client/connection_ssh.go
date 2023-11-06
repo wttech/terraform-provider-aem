@@ -39,7 +39,7 @@ func (s *SSHConnection) Connect() error {
 }
 
 func (s *SSHConnection) Info() string {
-	return fmt.Sprintf("ssh %s@%s:%d", s.user, s.host, s.port)
+	return fmt.Sprintf("ssh: host='%s', user='%s', port='%d'", s.host, s.user, s.port)
 }
 
 func (s *SSHConnection) Disconnect() error {

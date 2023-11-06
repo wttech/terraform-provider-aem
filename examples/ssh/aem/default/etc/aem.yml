@@ -63,7 +63,7 @@ instance:
     # Time to wait for next state checking
     interval: 6s
     # Number of successful check attempts that indicates end of checking
-    done_threshold: 2
+    done_threshold: 3
     # Wait only for those instances whose state has been changed internally (unaware of external changes)
     await_strict: true
     # Max time to wait for the instance to be healthy after executing the start script or e.g deploying a package
@@ -221,4 +221,4 @@ output:
     # File path of logs written especially when output format is different than 'text'
     file: aem/home/var/log/aem.log
     # Controls where outputs and logs should be written to when format is 'text' (console|file|both)
-    mode: both
+    mode: console

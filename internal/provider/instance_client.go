@@ -18,9 +18,6 @@ func (ic *InstanceClient) Close() error {
 
 // TODO chown data dir to ssh user or 'aem' user (create him maybe)
 func (ic *InstanceClient) prepareDataDir() error {
-	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
-		return fmt.Errorf("cannot clean up AEM data directory: %w", err)
-	}
 	if _, err := ic.cl.RunShell(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot create AEM data directory: %w", err)
 	}
@@ -142,26 +139,26 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 
 // TODO when create fails this could be run twice; how about protecting it with lock?
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runHook("bootstrap", ic.data.Hook.Bootstrap.ValueString())
+	return ic.runHook("bootstrap", ".", ic.data.Hook.Bootstrap.ValueString())
 }
 
 // TODO when create fails this could be run twice; how about protecting it with lock?
 func (ic *InstanceClient) initialize() error {
-	return ic.runHook("initialize", ic.data.Hook.Initialize.ValueString())
+	return ic.runHook("initialize", ic.DataDir(), ic.data.Hook.Initialize.ValueString())
 }
 
 func (ic *InstanceClient) provision() error {
-	return ic.runHook("provision", ic.data.Hook.Provision.ValueString())
+	return ic.runHook("provision", ic.DataDir(), ic.data.Hook.Provision.ValueString())
 }
 
-func (ic *InstanceClient) runHook(name string, cmdScript string) error {
+func (ic *InstanceClient) runHook(name string, dir, cmdScript string) error {
 	if cmdScript == "" {
 		return nil
 	}
 
 	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' started", name))
 
-	textOut, err := ic.cl.RunShellScriptWithEnv(ic.DataDir(), cmdScript)
+	textOut, err := ic.cl.RunShellScriptWithEnv(dir, cmdScript)
 	if err != nil {
 		return fmt.Errorf("unable to run hook '%s' properly: %w", name, err)
 	}
