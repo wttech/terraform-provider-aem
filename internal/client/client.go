@@ -16,7 +16,7 @@ type Client struct {
 	connection Connection
 
 	Env    map[string]string
-	EnvDir string
+	EnvDir string // TODO this is more like tmp script dir
 }
 
 func (c Client) TypeName() string {
@@ -103,6 +103,24 @@ func (c Client) envScriptString() string {
 
 func (c Client) RunShellWithEnv(cmd string) ([]byte, error) {
 	return c.RunShell(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
+}
+
+func (c Client) RunShellScriptWithEnv(cmdScript string) ([]byte, error) {
+	file, err := os.CreateTemp(os.TempDir(), "tf-provider-aem-script-*.sh")
+	path := file.Name()
+	defer func() { _ = file.Close(); _ = os.Remove(path) }()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create temporary file for remote shell script: %w", err)
+	}
+	if _, err := file.WriteString(cmdScript); err != nil {
+		return nil, fmt.Errorf("cannot write temporary file for remote shell script: %w", err)
+	}
+	remotePath := fmt.Sprintf("%s/%s", c.EnvDir, filepath.Base(file.Name()))
+	defer func() { _ = c.FileDelete(remotePath) }()
+	if err := c.FileCopy(path, remotePath, true); err != nil {
+		return nil, err
+	}
+	return c.RunShellWithEnv(fmt.Sprintf("sh %s", remotePath))
 }
 
 func (c Client) RunShell(cmd string) ([]byte, error) {

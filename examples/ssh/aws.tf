@@ -5,26 +5,6 @@ resource "aws_instance" "aem_single" {
   iam_instance_profile        = aws_iam_instance_profile.aem_ec2.name
   key_name                    = aws_key_pair.main.key_name
   tags                        = local.tags
-
-  // TODO? cloud-init status --wait
-  // TODO if it is in cloud-init then after logging in via SSH this is done async
-  user_data = <<-EOF
-    #!/bin/sh
-
-    echo "Installing prerequisites"
-    yum install -y unzip
-    echo "Installed prerequisites"
-
-    echo "Installing AWS CLI"
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-    unzip awscliv2.zip
-    ./aws/install
-    echo "Installed AWS CLI"
-
-    echo "Downloading AEM library files"
-    aws s3 cp --recursive "s3://aemc/instance/classic/" "/home/ec2-user/aemc/aem/home/lib"
-    echo "Downloaded AEM library files"
-  EOF
 }
 
 data "tls_public_key" "main" {

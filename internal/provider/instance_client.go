@@ -141,3 +141,34 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 	}
 	return status, nil
 }
+
+func (ic *InstanceClient) bootstrap() error {
+	return ic.runHook("bootstrap", ic.data.Hook.Bootstrap.ValueString())
+}
+
+func (ic *InstanceClient) initialize() error {
+	return ic.runHook("initialize", ic.data.Hook.Initialize.ValueString())
+}
+
+func (ic *InstanceClient) provision() error {
+	return ic.runHook("provision", ic.data.Hook.Provision.ValueString())
+}
+
+func (ic *InstanceClient) runHook(name string, cmdScript string) error {
+	if cmdScript == "" {
+		return nil
+	}
+
+	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' started", name))
+
+	textOut, err := ic.cl.RunShellScriptWithEnv(cmdScript)
+	if err != nil {
+		return fmt.Errorf("unable to run hook '%s' properly: %w", name, err)
+	}
+	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
+
+	tflog.Info(ic.ctx, fmt.Sprintf("Hook '%s' finished", name))
+	tflog.Info(ic.ctx, textStr)
+
+	return nil
+}
