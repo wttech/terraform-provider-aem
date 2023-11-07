@@ -37,19 +37,18 @@ type InstanceResourceModel struct {
 		Type     types.String `tfsdk:"type"`
 		Settings types.Map    `tfsdk:"settings"`
 	} `tfsdk:"client"`
+	Files  types.Map `tfsdk:"files"`
+	System struct {
+		DataDir   types.String `tfsdk:"data_dir"`
+		Service   types.String `tfsdk:"service"`
+		Bootstrap types.String `tfsdk:"bootstrap"`
+	} `tfsdk:"system"`
 	Compose struct {
-		DataDir            types.String `tfsdk:"data_dir"`
-		Version            types.String `tfsdk:"version"`
-		ConfigFile         types.String `tfsdk:"config_file"`
-		ConfigFileChecksum types.String `tfsdk:"config_file_checksum"`
-		LibDir             types.String `tfsdk:"lib_dir"`
-		InstanceId         types.String `tfsdk:"instance_id"`
+		Version types.String `tfsdk:"version"`
+		Config  types.String `tfsdk:"config"`
+		Init    types.String `tfsdk:"initialize"`
+		Launch  types.String `tfsdk:"provision"`
 	} `tfsdk:"compose"`
-	Hook struct {
-		Bootstrap  types.String `tfsdk:"bootstrap"`
-		Initialize types.String `tfsdk:"initialize"`
-		Provision  types.String `tfsdk:"provision"`
-	} `tfsdk:"hook"`
 	Instances types.List `tfsdk:"instances"`
 }
 
@@ -90,58 +89,48 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					},
 				},
 			},
-			"compose": schema.SingleNestedBlock{
+			"system": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
+					"bootstrap": schema.StringAttribute{
+						MarkdownDescription: "Script executed once after connecting to the instance. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc. Forces instance recreation if changed.",
+						Optional:            true,
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
 					"data_dir": schema.StringAttribute{
-						MarkdownDescription: "Remote path in which AEM Compose data will be stored",
+						MarkdownDescription: "Remote root path in which AEM Compose files and unpacked instances will be stored",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("/mnt/aemc"),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
+					"service": schema.StringAttribute{
+						MarkdownDescription: "Contents of the 'systemd' service configuration file",
+						Optional:            true,
+						Default:             stringdefault.StaticString(instance.ServiceTemplate),
+					},
+				},
+			},
+			"compose": schema.SingleNestedBlock{
+				Attributes: map[string]schema.Attribute{
 					"version": schema.StringAttribute{
 						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("1.4.1"),
 					},
-					"config_file": schema.StringAttribute{
-						MarkdownDescription: "Local path to the AEM configuration file",
+					"config": schema.StringAttribute{
+						MarkdownDescription: "Contents of the AEM Compose YML configuration file",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("aem/default/etc/aem.yml"),
+						Default:             stringdefault.StaticString(instance.ConfigYML),
 					},
-					"config_file_checksum": schema.StringAttribute{
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{instance.ConfigFileChecksumPlanModifier()},
-					},
-					"lib_dir": schema.StringAttribute{
-						MarkdownDescription: "Local path to directory from which AEM library files will be copied to the remote AEM machine",
-						Computed:            true,
-						Optional:            true,
-						Default:             stringdefault.StaticString("aem/home/lib"),
-					},
-					"instance_id": schema.StringAttribute{
-						MarkdownDescription: "ID of the AEM instance to use (one of the instances defined in the configuration file)",
-						Optional:            true,
-					},
-				},
-			},
-			"hook": schema.SingleNestedBlock{
-				MarkdownDescription: "Scripts executed on the remote AEM machine at key stages of the AEM instance lifecycle",
-				Attributes: map[string]schema.Attribute{
-					"bootstrap": schema.StringAttribute{
-						MarkdownDescription: "Executed once after connecting to the instance. Forces instance recreation if changed. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc.",
+					"init": schema.StringAttribute{
+						MarkdownDescription: "Script executed once after initializing AEM Compose but before launching the instance. Forces instance recreation if changed. Can be used for restoring instances from backup.",
 						Optional:            true,
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
-					"initialize": schema.StringAttribute{
-						MarkdownDescription: "Executed once after initializing AEM Compose but before launching the instance. Forces instance recreation if changed. Can be used for restoring instances from backup.",
-						Optional:            true,
-						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
-					},
-					"provision": schema.StringAttribute{
-						MarkdownDescription: "Executed when the instance is launched. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
+					"launch": schema.StringAttribute{
+						MarkdownDescription: "Script executed when the instance is launched. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
 					},
 				},

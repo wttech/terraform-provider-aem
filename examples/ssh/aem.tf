@@ -10,12 +10,14 @@ resource "aem_instance" "single" {
       private_key_file = local.ssh_private_key # cannot be put into state as this is OS-dependent
     }
   }
-  compose {
-    version  = "1.5.8"
-    data_dir = local.aem_single_compose_dir
+  /* TODO support this as well
+  files = {
+    "lib" = "${local.aem_single_compose_dir}/aem/home/lib"
   }
-  hook {
-    bootstrap  = <<EOF
+  */
+  system {
+    data_dir  = local.aem_single_compose_dir
+    bootstrap = <<EOF
       #!/bin/sh
       (
         echo "Mounting EBS volume into data directory"
@@ -34,11 +36,10 @@ resource "aem_instance" "single" {
         aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "${local.aem_single_compose_dir}/aem/home/lib"
       )
     EOF
-    initialize = <<EOF
-      #!/bin/sh
-      # sh aemw instance backup restore
-    EOF
-    provision  = <<EOF
+  }
+  compose {
+    version    = "1.5.8"
+    launch = <<EOF
       #!/bin/sh
       sh aemw osgi bundle install --url "https://github.com/neva-dev/felix-search-webconsole-plugin/releases/download/2.0.0/search-webconsole-plugin-2.0.0.jar" && \
       sh aemw osgi config save --pid "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet" --input-string "alias: /crx/server" && \

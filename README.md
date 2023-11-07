@@ -13,7 +13,7 @@ Built on top of [AEM Compose](https://github.com/wttech/aemc).
 
 ```hcl
 resource "aem_instance" "single" {
-  depends_on = [aws_instance.aem_single, aws_volume_attachment.aem_single_data]
+  depends_on = [aws_instance.aem_single, aws_volume_attachment.aem_single_data]§
 
   client {
     type     = "ssh"
