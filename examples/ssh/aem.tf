@@ -13,7 +13,7 @@ resource "aem_instance" "single" {
 
   system {
     data_dir  = local.aem_single_compose_dir
-    bootstrap = <<EOF
+    bootstrap = <<SHELL
       #!/bin/sh
       (
         echo "Mounting EBS volume into data directory"
@@ -31,12 +31,12 @@ resource "aem_instance" "single" {
         mkdir -p "${local.aem_single_compose_dir}/aem/home/lib" && \
         aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "${local.aem_single_compose_dir}/aem/home/lib"
       )
-    EOF
+    SHELL
   }
 
   compose {
     version = "1.5.8"
-    launch = <<EOF
+    launch = <<SHELL
       #!/bin/sh
       sh aemw osgi bundle install --url "https://github.com/neva-dev/felix-search-webconsole-plugin/releases/download/2.0.0/search-webconsole-plugin-2.0.0.jar" && \
       sh aemw osgi config save --pid "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet" --input-string "alias: /crx/server" && \
@@ -48,9 +48,9 @@ resource "aem_instance" "single" {
       userId: admin
       " | sh aemw repl agent setup -A --location "author" --name "publish" && \
       sh aemw package deploy --file "aem/home/lib/aem-service-pkg-6.5.*.0.zip"
-    EOF
+    SHELL
 
-    config = <<EOF
+    config = <<YAML
     # AEM instances to work with
     instance:
 
@@ -275,7 +275,7 @@ resource "aem_instance" "single" {
         file: aem/home/var/log/aem.log
         # Controls where outputs and logs should be written to when format is 'text' (console|file|both)
         mode: console
-    EOF
+    YAML
   }
 }
 
