@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -40,6 +41,7 @@ type InstanceResourceModel struct {
 	Files  types.Map `tfsdk:"files"`
 	System struct {
 		DataDir   types.String `tfsdk:"data_dir"`
+		Env       types.Map    `tfsdk:"env"`
 		Service   types.String `tfsdk:"service"`
 		Bootstrap types.String `tfsdk:"bootstrap"`
 	} `tfsdk:"system"`
@@ -108,6 +110,13 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Optional:            true,
 						Default:             stringdefault.StaticString(instance.ServiceTemplate),
 					},
+					"env": schema.MapAttribute{ // TODO handle it
+						MarkdownDescription: "Environment variables for AEM instances",
+						ElementType:         types.StringType,
+						Computed:            true,
+						Optional:            true,
+						Default:             mapdefault.StaticValue(types.MapValueMust(types.StringType, map[string]attr.Value{})),
+					},
 				},
 			},
 			"compose": schema.SingleNestedBlock{
@@ -138,6 +147,13 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 		},
 
 		Attributes: map[string]schema.Attribute{
+			"files": schema.MapAttribute{ // TODO handle it, instead of copying lib dir
+				MarkdownDescription: "Files or directories to be copied into the machine",
+				ElementType:         types.StringType,
+				Computed:            true,
+				Optional:            true,
+				Default:             mapdefault.StaticValue(types.MapValueMust(types.StringType, map[string]attr.Value{})),
+			},
 			"instances": schema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
