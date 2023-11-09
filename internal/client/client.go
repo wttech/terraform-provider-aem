@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/melbahja/goph"
+	"github.com/wttech/terraform-provider-aem/internal/utils"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,8 +16,8 @@ type Client struct {
 	settings   map[string]string
 	connection Connection
 
-	Env    map[string]string
-	EnvDir string // TODO this is more like tmp script dir
+	Env     map[string]string
+	WorkDir string
 }
 
 func (c Client) TypeName() string {
@@ -78,18 +79,11 @@ func (c Client) SetupEnv() error {
 }
 
 func (c Client) envScriptPath() string {
-	return fmt.Sprintf("%s/env.sh", c.EnvDir)
+	return fmt.Sprintf("%s/env.sh", c.WorkDir)
 }
 
 func (c Client) envScriptString() string {
-	var sb strings.Builder
-	sb.WriteString("#!/bin/sh\n")
-	for name, value := range c.Env {
-		escapedValue := strings.ReplaceAll(value, "\"", "\\\"")
-		escapedValue = strings.ReplaceAll(escapedValue, "$", "\\$")
-		sb.WriteString(fmt.Sprintf("export %s=\"%s\"\n", name, escapedValue))
-	}
-	return sb.String()
+	return utils.EnvToScript(c.Env)
 }
 
 func (c Client) RunShellCommand(cmd string) ([]byte, error) {
@@ -97,7 +91,7 @@ func (c Client) RunShellCommand(cmd string) ([]byte, error) {
 }
 
 func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]byte, error) {
-	remotePath := fmt.Sprintf("%s/%s.sh", c.EnvDir, cmdName)
+	remotePath := fmt.Sprintf("%s/%s.sh", c.WorkDir, cmdName)
 	if err := c.FileWrite(remotePath, cmdScript); err != nil {
 		return nil, fmt.Errorf("cannot write temporary script at remote path '%s': %w", remotePath, err)
 	}

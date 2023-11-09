@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -41,15 +42,19 @@ type InstanceResourceModel struct {
 	Files  types.Map `tfsdk:"files"`
 	System struct {
 		DataDir   types.String `tfsdk:"data_dir"`
+		WorkDir   types.String `tfsdk:"work_dir"`
 		Env       types.Map    `tfsdk:"env"`
 		Service   types.String `tfsdk:"service"`
+		User      types.String `tfsdk:"user"`
 		Bootstrap types.String `tfsdk:"bootstrap"`
 	} `tfsdk:"system"`
 	Compose struct {
-		Version types.String `tfsdk:"version"`
-		Config  types.String `tfsdk:"config"`
-		Init    types.String `tfsdk:"init"`
-		Launch  types.String `tfsdk:"launch"`
+		Download types.Bool   `tfsdk:"download"`
+		Version  types.String `tfsdk:"version"`
+		Config   types.String `tfsdk:"config"`
+		Create   types.String `tfsdk:"create"`
+		Launch   types.String `tfsdk:"launch"`
+		Delete   types.String `tfsdk:"delete"`
 	} `tfsdk:"compose"`
 	Instances types.List `tfsdk:"instances"`
 }
@@ -105,13 +110,26 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString("/mnt/aemc"),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
+					"work_dir": schema.StringAttribute{
+						MarkdownDescription: "Remote root path in which AEM Compose TF provider temporary files will be stored",
+						Computed:            true,
+						Optional:            true,
+						Default:             stringdefault.StaticString("/tmp/aemc"),
+					},
 					"service": schema.StringAttribute{
 						MarkdownDescription: "Contents of the 'systemd' service configuration file",
 						Optional:            true,
 						Computed:            true,
-						Default:             stringdefault.StaticString(instance.ServiceTemplate),
+						Default:             stringdefault.StaticString(instance.ServiceConf),
 					},
-					"env": schema.MapAttribute{ // TODO handle it
+					"user": schema.StringAttribute{
+						MarkdownDescription: "System user under which AEM instance will be running. By default, the same as the user used to connect to the machine.",
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(""),
+					},
+					"env": schema.MapAttribute{
 						MarkdownDescription: "Environment variables for AEM instances",
 						ElementType:         types.StringType,
 						Computed:            true,
@@ -122,11 +140,17 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 			"compose": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
-					"version": schema.StringAttribute{
-						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine",
+					"download": schema.BoolAttribute{
+						MarkdownDescription: fmt.Sprintf("Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory."),
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("1.4.1"),
+						Default:             booldefault.StaticBool(true),
+					},
+					"version": schema.StringAttribute{
+						MarkdownDescription: fmt.Sprintf("Version of AEM Compose tool to use on remote AEM machine."),
+						Computed:            true,
+						Optional:            true,
+						Default:             stringdefault.StaticString("1.5.8"),
 					},
 					"config": schema.StringAttribute{
 						MarkdownDescription: "Contents of the AEM Compose YML configuration file",
@@ -134,14 +158,24 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Optional:            true,
 						Default:             stringdefault.StaticString(instance.ConfigYML),
 					},
-					"init": schema.StringAttribute{
-						MarkdownDescription: "Script executed once after initializing AEM Compose but before launching the instance. Forces instance recreation if changed. Can be used for restoring instances from backup.",
+					"create": schema.StringAttribute{
+						MarkdownDescription: "Script for creating the instance or restoring from backup. Forces instance recreation if changed.",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.CreateScript),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"launch": schema.StringAttribute{
-						MarkdownDescription: "Script executed when the instance is launched. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
+						MarkdownDescription: "Script for configuring launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.LaunchScript),
+					},
+					"delete": schema.StringAttribute{
+						MarkdownDescription: "Script for deleting the instance.",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.DeleteScript),
 					},
 				},
 			},
@@ -248,21 +282,24 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 	}(ic)
 
 	if err := ic.copyFiles(); err != nil {
-		diags.AddError("Unable to copy files", fmt.Sprintf("%s", err))
+		diags.AddError("Unable to copy AEM instance files", fmt.Sprintf("%s", err))
 		return
 	}
-
 	if create {
-		if err := ic.runBootstrapHook(); err != nil {
-			diags.AddError("Unable to bootstrap AEM machine", fmt.Sprintf("%s", err))
+		if err := ic.bootstrap(); err != nil {
+			diags.AddError("Unable to bootstrap AEM instance machine", fmt.Sprintf("%s", err))
 			return
 		}
+	}
+	if err := ic.prepareWorkDir(); err != nil {
+		diags.AddError("Unable to prepare AEM work directory", fmt.Sprintf("%s", err))
+		return
 	}
 	if err := ic.prepareDataDir(); err != nil {
 		diags.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := ic.installComposeWrapper(); err != nil {
+	if err := ic.installComposeCLI(); err != nil {
 		diags.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
 	}
@@ -271,21 +308,13 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		return
 	}
 	if create {
-		if err := ic.runInitHook(); err != nil {
-			diags.AddError("Unable to initialize AEM instance", fmt.Sprintf("%s", err))
+		if err := ic.create(); err != nil {
+			diags.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
 			return
 		}
 	}
-	if err := ic.create(); err != nil {
-		diags.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
-		return
-	}
 	if err := ic.launch(); err != nil {
 		diags.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
-		return
-	}
-	if err := ic.runLaunchHook(); err != nil {
-		diags.AddError("Unable to provision AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
 
@@ -427,7 +456,7 @@ func (r *InstanceResource) client(ctx context.Context, model InstanceResourceMod
 
 	cl.Env["AEM_CLI_VERSION"] = model.Compose.Version.ValueString()
 	cl.Env["AEM_OUTPUT_LOG_MODE"] = "both"
-	cl.EnvDir = "/tmp" // TODO make configurable; or just in user home dir './' ?
+	cl.WorkDir = model.System.WorkDir.ValueString()
 
 	if err := cl.SetupEnv(); err != nil {
 		return nil, err

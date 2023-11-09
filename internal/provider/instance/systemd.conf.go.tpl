@@ -6,9 +6,9 @@ After=cloud-final.service
 [Service]
 Type=forking
 
-ExecStart=su - "{{.USER}}" -c ". /etc/profile && cd {{.DATA_DIR}} && sh aemw instance start"
-ExecStop=su - "{{.USER}}" -c ". /etc/profile && cd {{.DATA_DIR}} && sh aemw instance stop"
-ExecReload=su - "{{.USER}}" -c ". /etc/profile && cd {{.DATA_DIR}} && sh aemw instance restart"
+ExecStart=su - "{{.SERVICE_USER}}" -c ". /etc/profile && cd {{.DATA_DIR}} && sh aemw instance start"
+ExecStop=su - "{{.SERVICE_USER}}" -c ". /etc/profile && cd {{.DATA_DIR}} && sh aemw instance stop"
+ExecReload=su - "{{.SERVICE_USER}}" -c ". /etc/profile && cd {{.DATA_DIR}} && sh aemw instance restart"
 KillMode=process
 RemainAfterExit=yes
 TimeoutStartSec=1810

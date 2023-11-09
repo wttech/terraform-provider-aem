@@ -6,4 +6,13 @@ import _ "embed"
 var ConfigYML string
 
 //go:embed systemd.conf.go.tpl
-var ServiceTemplate string
+var ServiceConf string
+
+//go:embed create.sh
+var CreateScript string
+
+//go:embed launch.sh
+var LaunchScript string
+
+//go:embed delete.sh
+var DeleteScript string
