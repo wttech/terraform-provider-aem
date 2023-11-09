@@ -48,8 +48,8 @@ type InstanceResourceModel struct {
 	Compose struct {
 		Version types.String `tfsdk:"version"`
 		Config  types.String `tfsdk:"config"`
-		Init    types.String `tfsdk:"initialize"`
-		Launch  types.String `tfsdk:"provision"`
+		Init    types.String `tfsdk:"init"`
+		Launch  types.String `tfsdk:"launch"`
 	} `tfsdk:"compose"`
 	Instances types.List `tfsdk:"instances"`
 }
@@ -108,6 +108,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					"service": schema.StringAttribute{
 						MarkdownDescription: "Contents of the 'systemd' service configuration file",
 						Optional:            true,
+						Computed:            true,
 						Default:             stringdefault.StaticString(instance.ServiceTemplate),
 					},
 					"env": schema.MapAttribute{ // TODO handle it
@@ -246,8 +247,13 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		}
 	}(ic)
 
+	if err := ic.copyFiles(); err != nil {
+		diags.AddError("Unable to copy files", fmt.Sprintf("%s", err))
+		return
+	}
+
 	if create {
-		if err := ic.bootstrap(); err != nil {
+		if err := ic.runBootstrapHook(); err != nil {
 			diags.AddError("Unable to bootstrap AEM machine", fmt.Sprintf("%s", err))
 			return
 		}
@@ -260,16 +266,12 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		diags.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := ic.copyConfigFile(); err != nil {
-		diags.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
-		return
-	}
-	if err := ic.copyLibraryDir(); err != nil {
-		diags.AddError("Unable to copy AEM library dir", fmt.Sprintf("%s", err))
+	if err := ic.writeConfigFile(); err != nil {
+		diags.AddError("Unable to write AEM configuration file", fmt.Sprintf("%s", err))
 		return
 	}
 	if create {
-		if err := ic.initialize(); err != nil {
+		if err := ic.runInitHook(); err != nil {
 			diags.AddError("Unable to initialize AEM instance", fmt.Sprintf("%s", err))
 			return
 		}
@@ -282,7 +284,7 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		diags.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := ic.provision(); err != nil {
+	if err := ic.runLaunchHook(); err != nil {
 		diags.AddError("Unable to provision AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
@@ -344,7 +346,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	ic, err := r.client(ctx, model, time.Second*15)
 	if err != nil {
-		tflog.Info(ctx, "Cannot read AEM instance state as it is not possible to connect at the moment. Possible reasons: machine IP change is in progress, machine is not yet created or booting up, etc.")
+		tflog.Info(ctx, "Cannot read AEM instance state as it is not possible to connect	 at the moment. Possible reasons: machine IP change is in progress, machine is not yet created or booting up, etc.")
 	} else {
 		defer func(ic *InstanceClient) {
 			err := ic.Close()

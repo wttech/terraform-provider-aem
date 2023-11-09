@@ -9,7 +9,7 @@ import (
 type InstanceClient ClientContext[InstanceResourceModel]
 
 func (ic *InstanceClient) DataDir() string {
-	return ic.data.Compose.DataDir.ValueString()
+	return ic.data.System.DataDir.ValueString()
 }
 
 func (ic *InstanceClient) Close() error {
@@ -18,7 +18,7 @@ func (ic *InstanceClient) Close() error {
 
 // TODO chown data dir to ssh user or 'aem' user (create him maybe)
 func (ic *InstanceClient) prepareDataDir() error {
-	if _, err := ic.cl.RunShell(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
+	if _, err := ic.cl.RunShellPurely(fmt.Sprintf("mkdir -p %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot create AEM data directory: %w", err)
 	}
 	return nil
@@ -30,7 +30,7 @@ func (ic *InstanceClient) installComposeWrapper() error {
 		return fmt.Errorf("cannot check if AEM Compose CLI wrapper is installed: %w", err)
 	}
 	if !exists {
-		out, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.DataDir()))
+		out, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.DataDir()))
 		tflog.Info(ic.ctx, string(out))
 		if err != nil {
 			return fmt.Errorf("cannot download AEM Compose CLI wrapper: %w", err)
@@ -39,19 +39,21 @@ func (ic *InstanceClient) installComposeWrapper() error {
 	return nil
 }
 
-func (ic *InstanceClient) copyConfigFile() error {
-	configFile := ic.data.Compose.ConfigFile.ValueString()
-	if err := ic.cl.FileCopy(configFile, fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir()), true); err != nil {
+func (ic *InstanceClient) writeConfigFile() error {
+	configYAML := ic.data.Compose.Config.ValueString()
+	if err := ic.cl.FileWrite(fmt.Sprintf("%s/aem/default/etc/aem.yml", ic.DataDir()), configYAML); err != nil {
 		return fmt.Errorf("unable to copy AEM configuration file: %w", err)
 	}
 	return nil
 }
 
-func (ic *InstanceClient) copyLibraryDir() error {
-	localLibDir := ic.data.Compose.LibDir.ValueString()
-	remoteLibDir := fmt.Sprintf("%s/aem/home/lib", ic.DataDir())
-	if err := ic.cl.DirCopy(localLibDir, remoteLibDir, false); err != nil {
-		return fmt.Errorf("unable to copy AEM library dir: %w", err)
+func (ic *InstanceClient) copyFiles() error {
+	var filesMap map[string]string
+	ic.data.Files.ElementsAs(ic.ctx, &filesMap, true)
+	for localPath, remotePath := range filesMap {
+		if err := ic.cl.PathCopy(localPath, remotePath, true); err != nil {
+			return fmt.Errorf("unable to copy path '%s' to '%s': %w", localPath, remotePath, err)
+		}
 	}
 	return nil
 }
@@ -59,7 +61,7 @@ func (ic *InstanceClient) copyLibraryDir() error {
 func (ic *InstanceClient) create() error {
 	tflog.Info(ic.ctx, "Creating AEM instance(s)")
 
-	textOut, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance create", ic.DataDir()))
+	textOut, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && sh aemw instance create", ic.DataDir()))
 	if err != nil {
 		return fmt.Errorf("unable to create AEM instance: %w", err)
 	}
@@ -75,7 +77,7 @@ func (ic *InstanceClient) launch() error {
 	tflog.Info(ic.ctx, "Launching AEM instance(s)")
 
 	// TODO register systemd service instead and start it
-	textOut, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance launch", ic.DataDir()))
+	textOut, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && sh aemw instance launch", ic.DataDir()))
 	if err != nil {
 		return fmt.Errorf("unable to launch AEM instance: %w", err)
 	}
@@ -92,7 +94,7 @@ func (ic *InstanceClient) terminate() error {
 	tflog.Info(ic.ctx, "Terminating AEM instance(s)")
 
 	// TODO use systemd service instead and stop it
-	textOut, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance terminate", ic.DataDir()))
+	textOut, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && sh aemw instance terminate", ic.DataDir()))
 	if err != nil {
 		return fmt.Errorf("unable to terminate AEM instance: %w", err)
 	}
@@ -105,7 +107,7 @@ func (ic *InstanceClient) terminate() error {
 }
 
 func (ic *InstanceClient) deleteDataDir() error {
-	if _, err := ic.cl.RunShell(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
+	if _, err := ic.cl.RunShellPurely(fmt.Sprintf("rm -fr %s", ic.DataDir())); err != nil {
 		return fmt.Errorf("cannot delete AEM data directory: %w", err)
 	}
 	return nil
@@ -127,7 +129,7 @@ type InstanceStatus struct {
 
 func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 	var status InstanceStatus
-	yamlBytes, err := ic.cl.RunShellWithEnv(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.DataDir()))
+	yamlBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.DataDir()))
 	if err != nil {
 		return status, err
 	}
@@ -138,27 +140,27 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 // TODO when create fails this could be run twice; how about protecting it with lock?
-func (ic *InstanceClient) bootstrap() error {
-	return ic.runHook("bootstrap", ".", ic.data.Hook.Bootstrap.ValueString())
+func (ic *InstanceClient) runBootstrapHook() error {
+	return ic.runHook("bootstrap", ic.data.System.Bootstrap.ValueString(), ".")
 }
 
 // TODO when create fails this could be run twice; how about protecting it with lock?
-func (ic *InstanceClient) initialize() error {
-	return ic.runHook("initialize", ic.DataDir(), ic.data.Hook.Initialize.ValueString())
+func (ic *InstanceClient) runInitHook() error {
+	return ic.runHook("init", ic.data.Compose.Init.ValueString(), ic.DataDir())
 }
 
-func (ic *InstanceClient) provision() error {
-	return ic.runHook("provision", ic.DataDir(), ic.data.Hook.Provision.ValueString())
+func (ic *InstanceClient) runLaunchHook() error {
+	return ic.runHook("launch", ic.data.Compose.Launch.ValueString(), ic.DataDir())
 }
 
-func (ic *InstanceClient) runHook(name string, dir, cmdScript string) error {
+func (ic *InstanceClient) runHook(name, cmdScript, dir string) error {
 	if cmdScript == "" {
 		return nil
 	}
 
 	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance hook '%s'", name))
 
-	textOut, err := ic.cl.RunShellScriptWithEnv(dir, cmdScript)
+	textOut, err := ic.cl.RunShellScript(name, cmdScript, dir)
 	if err != nil {
 		return fmt.Errorf("unable to execute hook '%s' properly: %w", name, err)
 	}
