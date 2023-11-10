@@ -44,7 +44,6 @@ type InstanceResourceModel struct {
 		DataDir       types.String `tfsdk:"data_dir"`
 		WorkDir       types.String `tfsdk:"work_dir"`
 		Env           types.Map    `tfsdk:"env"`
-		BinScript     types.String `tfsdk:"bin_script"`
 		ServiceConfig types.String `tfsdk:"service_config"`
 		User          types.String `tfsdk:"user"`
 		Bootstrap     types.String `tfsdk:"bootstrap"`
@@ -116,12 +115,6 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("/tmp/aemc"),
-					},
-					"bin_script": schema.StringAttribute{
-						MarkdownDescription: "Contents of the system-wide binary script for controlling AEM instance.",
-						Optional:            true,
-						Computed:            true,
-						Default:             stringdefault.StaticString(instance.BinScript),
 					},
 					"service_config": schema.StringAttribute{
 						MarkdownDescription: "Contents of the AEM 'systemd' service definition file",

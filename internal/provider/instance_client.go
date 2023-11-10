@@ -99,7 +99,6 @@ func (ic *InstanceClient) saveProfileScript() error {
 }
 
 func (ic *InstanceClient) configureService() error {
-	binFile := fmt.Sprintf("/usr/sbin/%s", ServiceName)
 	user := ic.data.System.User.ValueString()
 	if user == "" {
 		user = ic.cl.Connection().User()
@@ -107,22 +106,10 @@ func (ic *InstanceClient) configureService() error {
 	vars := map[string]string{
 		"DATA_DIR": ic.dataDir(),
 		"USER":     user,
-		"BIN_FILE": binFile,
 	}
 
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()
-
-	binScriptTemplated, err := utils.TemplateString(ic.data.System.BinScript.ValueString(), vars)
-	if err != nil {
-		return fmt.Errorf("unable to template AEM system script: %w", err)
-	}
-	if err := ic.cl.FileWrite(binFile, binScriptTemplated); err != nil {
-		return fmt.Errorf("unable to write AEM system script '%s': %w", binFile, err)
-	}
-	if err := ic.cl.FileMakeExecutable(binFile); err != nil {
-		return fmt.Errorf("unable to make AEM system script '%s' executable: %w", binFile, err)
-	}
 
 	serviceTemplated, err := utils.TemplateString(ic.data.System.ServiceConfig.ValueString(), vars)
 	if err != nil {
