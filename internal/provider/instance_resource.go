@@ -139,6 +139,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"compose": schema.SingleNestedBlock{
+
 				Attributes: map[string]schema.Attribute{
 					"download": schema.BoolAttribute{
 						MarkdownDescription: fmt.Sprintf("Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory."),

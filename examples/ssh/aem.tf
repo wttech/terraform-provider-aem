@@ -33,6 +33,8 @@ resource "aem_instance" "single" {
       )
     SHELL
   }
+
+  compose {} // TODO must be at least empty; TF plugin framework bug?
 }
 
 locals {

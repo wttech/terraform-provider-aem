@@ -7,6 +7,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	ServiceName = "aem"
+)
+
 type InstanceClient ClientContext[InstanceResourceModel]
 
 func (ic *InstanceClient) Close() error {
@@ -67,10 +71,10 @@ func (ic *InstanceClient) copyFiles() error {
 
 func (ic *InstanceClient) create() error {
 	tflog.Info(ic.ctx, "Creating AEM instance(s)")
-	if err := ic.saveServiceDefinition(); err != nil {
+	if err := ic.configureService(); err != nil {
 		return err
 	}
-	if err := ic.saveServiceEnv(); err != nil {
+	if err := ic.saveEnv(); err != nil {
 		return err
 	}
 	if err := ic.runHook("create", ic.data.Compose.Create.ValueString(), ic.dataDir()); err != nil {
@@ -80,10 +84,13 @@ func (ic *InstanceClient) create() error {
 	return nil
 }
 
-func (ic *InstanceClient) saveServiceEnv() error {
-	envFile := "/etc/profile.d/aem.sh"
+func (ic *InstanceClient) saveEnv() error {
+	envFile := fmt.Sprintf("/etc/profile.d/%s.sh", ServiceName)
 	var envMap map[string]string
 	ic.data.System.Env.ElementsAs(ic.ctx, &envMap, true)
+
+	ic.cl.Sudo = true
+	defer func() { ic.cl.Sudo = false }()
 
 	if err := ic.cl.FileWrite(envFile, utils.EnvToScript(envMap)); err != nil {
 		return fmt.Errorf("unable to write AEM environment variables file '%s': %w", envFile, err)
@@ -91,8 +98,8 @@ func (ic *InstanceClient) saveServiceEnv() error {
 	return nil
 }
 
-func (ic *InstanceClient) saveServiceDefinition() error {
-	serviceFile := "/etc/systemd/system/aem"
+func (ic *InstanceClient) configureService() error {
+	serviceFile := fmt.Sprintf("/etc/systemd/system/%s.service", ServiceName)
 	serviceTemplated, err := utils.TemplateString(ic.data.System.Service.ValueString(), map[string]string{
 		"DATA_DIR":     ic.dataDir(),
 		"SERVICE_USER": ic.serviceUser(),
@@ -100,14 +107,24 @@ func (ic *InstanceClient) saveServiceDefinition() error {
 	if err != nil {
 		return fmt.Errorf("unable to template AEM system service definition: %w", err)
 	}
+
+	ic.cl.Sudo = true
+	defer func() { ic.cl.Sudo = false }()
+
 	if err := ic.cl.FileWrite(serviceFile, serviceTemplated); err != nil {
 		return fmt.Errorf("unable to write AEM system service definition '%s': %w", serviceFile, err)
+	}
+	if err := ic.runServiceAction("enable"); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (ic *InstanceClient) runServiceAction(action string) error {
-	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("sudo systemctl %s aem", action))
+	ic.cl.Sudo = true
+	defer func() { ic.cl.Sudo = false }()
+
+	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ServiceName))
 	if err != nil {
 		return fmt.Errorf("unable to perform AEM system service action '%s': %w", action, err)
 	}

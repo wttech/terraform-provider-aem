@@ -18,6 +18,7 @@ type Client struct {
 
 	Env     map[string]string
 	WorkDir string
+	Sudo    bool
 }
 
 func (c Client) TypeName() string {
@@ -100,7 +101,13 @@ func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]
 }
 
 func (c Client) RunShellPurely(cmd string) ([]byte, error) {
-	cmdObj, err := c.connection.Command([]string{"sh", "-c", "\"" + cmd + "\""})
+	var cmdLine []string
+	if c.Sudo {
+		cmdLine = []string{"sudo", "sh", "-c", "\"" + cmd + "\""}
+	} else {
+		cmdLine = []string{"sh", "-c", "\"" + cmd + "\""}
+	}
+	cmdObj, err := c.connection.Command(cmdLine)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create command '%s': %w", cmd, err)
 	}
@@ -192,10 +199,13 @@ func (c Client) FileCopy(localPath string, remotePath string, override bool) err
 	if err := c.DirEnsure(filepath.Dir(remotePath)); err != nil {
 		return err
 	}
-	remoteTmpPath := fmt.Sprintf("%s.tmp", remotePath)
-	defer func() {
-		_ = c.FileDelete(remoteTmpPath)
-	}()
+	var remoteTmpPath string
+	if c.Sudo { // assume that work dir is writable without sudo for uploading time
+		remoteTmpPath = fmt.Sprintf("%s/%s.tmp", c.WorkDir, filepath.Base(remotePath))
+	} else {
+		remoteTmpPath = fmt.Sprintf("%s.tmp", remotePath)
+	}
+	defer func() { _ = c.FileDelete(remoteTmpPath) }()
 	if err := c.connection.CopyFile(localPath, remoteTmpPath); err != nil {
 		return err
 	}

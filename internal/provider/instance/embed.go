@@ -5,7 +5,7 @@ import _ "embed"
 //go:embed config.yml
 var ConfigYML string
 
-//go:embed systemd.conf.go.tpl
+//go:embed systemd.conf
 var ServiceConf string
 
 //go:embed create.sh
