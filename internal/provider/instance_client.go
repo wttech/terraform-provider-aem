@@ -74,17 +74,17 @@ func (ic *InstanceClient) create() error {
 	if err := ic.configureService(); err != nil {
 		return err
 	}
-	if err := ic.saveEnv(); err != nil {
+	if err := ic.saveProfileScript(); err != nil {
 		return err
 	}
-	if err := ic.runHook("create", ic.data.Compose.Create.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("create", ic.data.Compose.CreateScript.ValueString(), ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Created AEM instance(s)")
 	return nil
 }
 
-func (ic *InstanceClient) saveEnv() error {
+func (ic *InstanceClient) saveProfileScript() error {
 	envFile := fmt.Sprintf("/etc/profile.d/%s.sh", ServiceName)
 	var envMap map[string]string
 	ic.data.System.Env.ElementsAs(ic.ctx, &envMap, true)
@@ -99,21 +99,40 @@ func (ic *InstanceClient) saveEnv() error {
 }
 
 func (ic *InstanceClient) configureService() error {
-	serviceFile := fmt.Sprintf("/etc/systemd/system/%s.service", ServiceName)
-	serviceTemplated, err := utils.TemplateString(ic.data.System.Service.ValueString(), map[string]string{
-		"DATA_DIR":     ic.dataDir(),
-		"SERVICE_USER": ic.serviceUser(),
-	})
-	if err != nil {
-		return fmt.Errorf("unable to template AEM system service definition: %w", err)
+	binFile := fmt.Sprintf("/usr/sbin/%s", ServiceName)
+	user := ic.data.System.User.ValueString()
+	if user == "" {
+		user = ic.cl.Connection().User()
+	}
+	vars := map[string]string{
+		"DATA_DIR": ic.dataDir(),
+		"USER":     user,
+		"BIN_FILE": binFile,
 	}
 
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()
 
+	binScriptTemplated, err := utils.TemplateString(ic.data.System.BinScript.ValueString(), vars)
+	if err != nil {
+		return fmt.Errorf("unable to template AEM system script: %w", err)
+	}
+	if err := ic.cl.FileWrite(binFile, binScriptTemplated); err != nil {
+		return fmt.Errorf("unable to write AEM system script '%s': %w", binFile, err)
+	}
+	if err := ic.cl.FileMakeExecutable(binFile); err != nil {
+		return fmt.Errorf("unable to make AEM system script '%s' executable: %w", binFile, err)
+	}
+
+	serviceTemplated, err := utils.TemplateString(ic.data.System.ServiceConfig.ValueString(), vars)
+	if err != nil {
+		return fmt.Errorf("unable to template AEM system service definition: %w", err)
+	}
+	serviceFile := fmt.Sprintf("/etc/systemd/system/%s.service", ServiceName)
 	if err := ic.cl.FileWrite(serviceFile, serviceTemplated); err != nil {
 		return fmt.Errorf("unable to write AEM system service definition '%s': %w", serviceFile, err)
 	}
+
 	if err := ic.runServiceAction("enable"); err != nil {
 		return err
 	}
@@ -133,20 +152,12 @@ func (ic *InstanceClient) runServiceAction(action string) error {
 	return nil
 }
 
-func (ic *InstanceClient) serviceUser() string {
-	user := ic.data.System.User.ValueString()
-	if user == "" {
-		user = ic.cl.Connection().User()
-	}
-	return user
-}
-
 func (ic *InstanceClient) launch() error {
 	tflog.Info(ic.ctx, "Launching AEM instance(s)")
 	if err := ic.runServiceAction("start"); err != nil {
 		return err
 	}
-	if err := ic.runHook("launch", ic.data.Compose.Launch.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("launch", ic.data.Compose.LaunchScript.ValueString(), ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Launched AEM instance(s)")
@@ -159,7 +170,7 @@ func (ic *InstanceClient) terminate() error {
 	if err := ic.runServiceAction("stop"); err != nil {
 		return err
 	}
-	if err := ic.runHook("delete", ic.data.Compose.Delete.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("delete", ic.data.Compose.DeleteScript.ValueString(), ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Terminated AEM instance(s)")
@@ -200,23 +211,23 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runHook("bootstrap", ic.data.System.Bootstrap.ValueString(), ".")
+	return ic.runScript("bootstrap", ic.data.System.Bootstrap.ValueString(), ".")
 }
 
-func (ic *InstanceClient) runHook(name, cmdScript, dir string) error {
+func (ic *InstanceClient) runScript(name, cmdScript, dir string) error {
 	if cmdScript == "" {
 		return nil
 	}
 
-	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance hook '%s'", name))
+	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
 
 	textOut, err := ic.cl.RunShellScript(name, cmdScript, dir)
 	if err != nil {
-		return fmt.Errorf("unable to execute hook '%s' properly: %w", name, err)
+		return fmt.Errorf("unable to execute script '%s' properly: %w", name, err)
 	}
 	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
 
-	tflog.Info(ic.ctx, fmt.Sprintf("Executed instance hook '%s'", name))
+	tflog.Info(ic.ctx, fmt.Sprintf("Executed instance script '%s'", name))
 	tflog.Info(ic.ctx, textStr)
 
 	return nil

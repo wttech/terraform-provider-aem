@@ -41,20 +41,21 @@ type InstanceResourceModel struct {
 	} `tfsdk:"client"`
 	Files  types.Map `tfsdk:"files"`
 	System struct {
-		DataDir   types.String `tfsdk:"data_dir"`
-		WorkDir   types.String `tfsdk:"work_dir"`
-		Env       types.Map    `tfsdk:"env"`
-		Service   types.String `tfsdk:"service"`
-		User      types.String `tfsdk:"user"`
-		Bootstrap types.String `tfsdk:"bootstrap"`
+		DataDir       types.String `tfsdk:"data_dir"`
+		WorkDir       types.String `tfsdk:"work_dir"`
+		Env           types.Map    `tfsdk:"env"`
+		BinScript     types.String `tfsdk:"bin_script"`
+		ServiceConfig types.String `tfsdk:"service_config"`
+		User          types.String `tfsdk:"user"`
+		Bootstrap     types.String `tfsdk:"bootstrap"`
 	} `tfsdk:"system"`
 	Compose struct {
-		Download types.Bool   `tfsdk:"download"`
-		Version  types.String `tfsdk:"version"`
-		Config   types.String `tfsdk:"config"`
-		Create   types.String `tfsdk:"create"`
-		Launch   types.String `tfsdk:"launch"`
-		Delete   types.String `tfsdk:"delete"`
+		Download     types.Bool   `tfsdk:"download"`
+		Version      types.String `tfsdk:"version"`
+		Config       types.String `tfsdk:"config"`
+		CreateScript types.String `tfsdk:"create_script"`
+		LaunchScript types.String `tfsdk:"launch_script"`
+		DeleteScript types.String `tfsdk:"delete_script"`
 	} `tfsdk:"compose"`
 	Instances types.List `tfsdk:"instances"`
 }
@@ -116,8 +117,14 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Optional:            true,
 						Default:             stringdefault.StaticString("/tmp/aemc"),
 					},
-					"service": schema.StringAttribute{
-						MarkdownDescription: "Contents of the 'systemd' service configuration file",
+					"bin_script": schema.StringAttribute{
+						MarkdownDescription: "Contents of the system-wide binary script for controlling AEM instance.",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.BinScript),
+					},
+					"service_config": schema.StringAttribute{
+						MarkdownDescription: "Contents of the AEM 'systemd' service definition file",
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString(instance.ServiceConf),
@@ -154,26 +161,26 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString("1.5.8"),
 					},
 					"config": schema.StringAttribute{
-						MarkdownDescription: "Contents of the AEM Compose YML configuration file",
+						MarkdownDescription: "Contents of the AEM Compose YML configuration file.",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString(instance.ConfigYML),
 					},
-					"create": schema.StringAttribute{
-						MarkdownDescription: "Script for creating the instance or restoring from backup. Forces instance recreation if changed.",
+					"create_script": schema.StringAttribute{
+						MarkdownDescription: "Creates the instance or restores from backup. Forces instance recreation if changed.",
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString(instance.CreateScript),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
-					"launch": schema.StringAttribute{
-						MarkdownDescription: "Script for configuring launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
+					"launch_script": schema.StringAttribute{
+						MarkdownDescription: "Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString(instance.LaunchScript),
 					},
-					"delete": schema.StringAttribute{
-						MarkdownDescription: "Script for deleting the instance.",
+					"delete_script": schema.StringAttribute{
+						MarkdownDescription: "Deletes the instance.",
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString(instance.DeleteScript),

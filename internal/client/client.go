@@ -147,6 +147,14 @@ func (c Client) FileMove(oldPath string, newPath string) error {
 	return nil
 }
 
+func (c Client) FileMakeExecutable(path string) error {
+	_, err := c.RunShellPurely(fmt.Sprintf("chmod +x %s", path))
+	if err != nil {
+		return fmt.Errorf("cannot make file executable '%s': %w", path, err)
+	}
+	return nil
+}
+
 func (c Client) DirExists(path string) (bool, error) {
 	out, err := c.RunShellPurely(fmt.Sprintf("test -d %s && echo '0' || echo '1'", path))
 	if err != nil {
