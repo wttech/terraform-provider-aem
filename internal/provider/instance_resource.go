@@ -8,7 +8,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -37,19 +39,23 @@ type InstanceResourceModel struct {
 		Type     types.String `tfsdk:"type"`
 		Settings types.Map    `tfsdk:"settings"`
 	} `tfsdk:"client"`
+	Files  types.Map `tfsdk:"files"`
+	System struct {
+		DataDir         types.String `tfsdk:"data_dir"`
+		WorkDir         types.String `tfsdk:"work_dir"`
+		Env             types.Map    `tfsdk:"env"`
+		ServiceConfig   types.String `tfsdk:"service_config"`
+		User            types.String `tfsdk:"user"`
+		BootstrapScript types.String `tfsdk:"bootstrap_script"`
+	} `tfsdk:"system"`
 	Compose struct {
-		DataDir            types.String `tfsdk:"data_dir"`
-		Version            types.String `tfsdk:"version"`
-		ConfigFile         types.String `tfsdk:"config_file"`
-		ConfigFileChecksum types.String `tfsdk:"config_file_checksum"`
-		LibDir             types.String `tfsdk:"lib_dir"`
-		InstanceId         types.String `tfsdk:"instance_id"`
+		Download     types.Bool   `tfsdk:"download"`
+		Version      types.String `tfsdk:"version"`
+		Config       types.String `tfsdk:"config"`
+		CreateScript types.String `tfsdk:"create_script"`
+		LaunchScript types.String `tfsdk:"launch_script"`
+		DeleteScript types.String `tfsdk:"delete_script"`
 	} `tfsdk:"compose"`
-	Hook struct {
-		Bootstrap  types.String `tfsdk:"bootstrap"`
-		Initialize types.String `tfsdk:"initialize"`
-		Provision  types.String `tfsdk:"provision"`
-	} `tfsdk:"hook"`
 	Instances types.List `tfsdk:"instances"`
 }
 
@@ -90,65 +96,100 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 					},
 				},
 			},
-			"compose": schema.SingleNestedBlock{
+			"system": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
+					"bootstrap_script": schema.StringAttribute{
+						MarkdownDescription: "Script executed once after connecting to the instance. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc. Forces instance recreation if changed.",
+						Optional:            true,
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+					},
 					"data_dir": schema.StringAttribute{
-						MarkdownDescription: "Remote path in which AEM Compose data will be stored",
+						MarkdownDescription: "Remote root path in which AEM Compose files and unpacked instances will be stored",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("/mnt/aemc"),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
-					"version": schema.StringAttribute{
-						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine",
+					"work_dir": schema.StringAttribute{
+						MarkdownDescription: "Remote root path in which AEM Compose TF provider temporary files will be stored",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("1.4.1"),
+						Default:             stringdefault.StaticString("/tmp/aemc"),
 					},
-					"config_file": schema.StringAttribute{
-						MarkdownDescription: "Local path to the AEM configuration file",
+					"service_config": schema.StringAttribute{
+						MarkdownDescription: "Contents of the AEM 'systemd' service definition file",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.ServiceConf),
+					},
+					"user": schema.StringAttribute{
+						MarkdownDescription: "System user under which AEM instance will be running. By default, the same as the user used to connect to the machine.",
+						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(""),
+					},
+					"env": schema.MapAttribute{
+						MarkdownDescription: "Environment variables for AEM instances",
+						ElementType:         types.StringType,
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("aem/default/etc/aem.yml"),
-					},
-					"config_file_checksum": schema.StringAttribute{
-						Computed:      true,
-						PlanModifiers: []planmodifier.String{instance.ConfigFileChecksumPlanModifier()},
-					},
-					"lib_dir": schema.StringAttribute{
-						MarkdownDescription: "Local path to directory from which AEM library files will be copied to the remote AEM machine",
-						Computed:            true,
-						Optional:            true,
-						Default:             stringdefault.StaticString("aem/home/lib"),
-					},
-					"instance_id": schema.StringAttribute{
-						MarkdownDescription: "ID of the AEM instance to use (one of the instances defined in the configuration file)",
-						Optional:            true,
+						Default:             mapdefault.StaticValue(types.MapValueMust(types.StringType, map[string]attr.Value{})),
 					},
 				},
 			},
-			"hook": schema.SingleNestedBlock{
-				MarkdownDescription: "Scripts executed on the remote AEM machine at key stages of the AEM instance lifecycle",
+			"compose": schema.SingleNestedBlock{
+
 				Attributes: map[string]schema.Attribute{
-					"bootstrap": schema.StringAttribute{
-						MarkdownDescription: "Executed once after connecting to the instance. Forces instance recreation if changed. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc.",
+					"download": schema.BoolAttribute{
+						MarkdownDescription: fmt.Sprintf("Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory."),
+						Computed:            true,
 						Optional:            true,
+						Default:             booldefault.StaticBool(true),
+					},
+					"version": schema.StringAttribute{
+						MarkdownDescription: fmt.Sprintf("Version of AEM Compose tool to use on remote AEM machine."),
+						Computed:            true,
+						Optional:            true,
+						Default:             stringdefault.StaticString("1.5.8"),
+					},
+					"config": schema.StringAttribute{
+						MarkdownDescription: "Contents of the AEM Compose YML configuration file.",
+						Computed:            true,
+						Optional:            true,
+						Default:             stringdefault.StaticString(instance.ConfigYML),
+					},
+					"create_script": schema.StringAttribute{
+						MarkdownDescription: "Creates the instance or restores from backup. Forces instance recreation if changed.",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.CreateScript),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
-					"initialize": schema.StringAttribute{
-						MarkdownDescription: "Executed once after initializing AEM Compose but before launching the instance. Forces instance recreation if changed. Can be used for restoring instances from backup.",
+					"launch_script": schema.StringAttribute{
+						MarkdownDescription: "Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
-						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.LaunchScript),
 					},
-					"provision": schema.StringAttribute{
-						MarkdownDescription: "Executed when the instance is launched. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
+					"delete_script": schema.StringAttribute{
+						MarkdownDescription: "Deletes the instance.",
 						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(instance.DeleteScript),
 					},
 				},
 			},
 		},
 
 		Attributes: map[string]schema.Attribute{
+			"files": schema.MapAttribute{ // TODO handle it, instead of copying lib dir
+				MarkdownDescription: "Files or directories to be copied into the machine",
+				ElementType:         types.StringType,
+				Computed:            true,
+				Optional:            true,
+				Default:             mapdefault.StaticValue(types.MapValueMust(types.StringType, map[string]attr.Value{})),
+			},
 			"instances": schema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema.NestedAttributeObject{
@@ -241,44 +282,40 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 		}
 	}(ic)
 
+	if err := ic.copyFiles(); err != nil {
+		diags.AddError("Unable to copy AEM instance files", fmt.Sprintf("%s", err))
+		return
+	}
 	if create {
 		if err := ic.bootstrap(); err != nil {
-			diags.AddError("Unable to bootstrap AEM machine", fmt.Sprintf("%s", err))
+			diags.AddError("Unable to bootstrap AEM instance machine", fmt.Sprintf("%s", err))
 			return
 		}
+	}
+	if err := ic.prepareWorkDir(); err != nil {
+		diags.AddError("Unable to prepare AEM work directory", fmt.Sprintf("%s", err))
+		return
 	}
 	if err := ic.prepareDataDir(); err != nil {
 		diags.AddError("Unable to prepare AEM data directory", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := ic.installComposeWrapper(); err != nil {
+	if err := ic.installComposeCLI(); err != nil {
 		diags.AddError("Unable to install AEM Compose CLI", fmt.Sprintf("%s", err))
 		return
 	}
-	if err := ic.copyConfigFile(); err != nil {
-		diags.AddError("Unable to copy AEM configuration file", fmt.Sprintf("%s", err))
-		return
-	}
-	if err := ic.copyLibraryDir(); err != nil {
-		diags.AddError("Unable to copy AEM library dir", fmt.Sprintf("%s", err))
+	if err := ic.writeConfigFile(); err != nil {
+		diags.AddError("Unable to write AEM configuration file", fmt.Sprintf("%s", err))
 		return
 	}
 	if create {
-		if err := ic.initialize(); err != nil {
-			diags.AddError("Unable to initialize AEM instance", fmt.Sprintf("%s", err))
+		if err := ic.create(); err != nil {
+			diags.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
 			return
 		}
 	}
-	if err := ic.create(); err != nil {
-		diags.AddError("Unable to create AEM instance", fmt.Sprintf("%s", err))
-		return
-	}
 	if err := ic.launch(); err != nil {
 		diags.AddError("Unable to launch AEM instance", fmt.Sprintf("%s", err))
-		return
-	}
-	if err := ic.provision(); err != nil {
-		diags.AddError("Unable to provision AEM instance", fmt.Sprintf("%s", err))
 		return
 	}
 
@@ -339,7 +376,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	ic, err := r.client(ctx, model, time.Second*15)
 	if err != nil {
-		tflog.Info(ctx, "Cannot read AEM instance state as it is not possible to connect at the moment. Possible reasons: machine IP change is in progress, machine is not yet created or booting up, etc.")
+		tflog.Info(ctx, "Cannot read AEM instance state as it is not possible to connect	 at the moment. Possible reasons: machine IP change is in progress, machine is not yet created or booting up, etc.")
 	} else {
 		defer func(ic *InstanceClient) {
 			err := ic.Close()
@@ -420,7 +457,7 @@ func (r *InstanceResource) client(ctx context.Context, model InstanceResourceMod
 
 	cl.Env["AEM_CLI_VERSION"] = model.Compose.Version.ValueString()
 	cl.Env["AEM_OUTPUT_LOG_MODE"] = "both"
-	cl.EnvDir = "/tmp" // TODO make configurable; or just in user home dir './' ?
+	cl.WorkDir = model.System.WorkDir.ValueString()
 
 	if err := cl.SetupEnv(); err != nil {
 		return nil, err

@@ -12,6 +12,11 @@ func (A AWSSSMConnection) Info() string {
 	panic("implement me")
 }
 
+func (A AWSSSMConnection) User() string {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (A AWSSSMConnection) Connect() error {
 	//TODO implement me
 	panic("implement me")

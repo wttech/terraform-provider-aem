@@ -10,12 +10,10 @@ resource "aem_instance" "single" {
       private_key_file = local.ssh_private_key # cannot be put into state as this is OS-dependent
     }
   }
-  compose {
-    version  = "1.5.8"
-    data_dir = local.aem_single_compose_dir
-  }
-  hook {
-    bootstrap  = <<EOF
+
+  system {
+    data_dir  = local.aem_single_compose_dir
+    bootstrap_script = <<SHELL
       #!/bin/sh
       (
         echo "Mounting EBS volume into data directory"
@@ -33,25 +31,10 @@ resource "aem_instance" "single" {
         mkdir -p "${local.aem_single_compose_dir}/aem/home/lib" && \
         aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "${local.aem_single_compose_dir}/aem/home/lib"
       )
-    EOF
-    initialize = <<EOF
-      #!/bin/sh
-      # sh aemw instance backup restore
-    EOF
-    provision  = <<EOF
-      #!/bin/sh
-      sh aemw osgi bundle install --url "https://github.com/neva-dev/felix-search-webconsole-plugin/releases/download/2.0.0/search-webconsole-plugin-2.0.0.jar" && \
-      sh aemw osgi config save --pid "org.apache.sling.jcr.davex.impl.servlets.SlingDavExServlet" --input-string "alias: /crx/server" && \
-      echo "
-      enabled: true
-      transportUri: http://localhost:4503/bin/receive?sling:authRequestLogin=1
-      transportUser: admin
-      transportPassword: admin
-      userId: admin
-      " | sh aemw repl agent setup -A --location "author" --name "publish" && \
-      sh aemw package deploy --file "aem/home/lib/aem-service-pkg-6.5.*.0.zip"
-    EOF
+    SHELL
   }
+
+  compose {} // TODO must be at least empty; TF plugin framework bug?
 }
 
 locals {

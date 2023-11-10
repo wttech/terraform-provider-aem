@@ -42,6 +42,10 @@ func (s *SSHConnection) Info() string {
 	return fmt.Sprintf("ssh: host='%s', user='%s', port='%d'", s.host, s.user, s.port)
 }
 
+func (s *SSHConnection) User() string {
+	return s.user
+}
+
 func (s *SSHConnection) Disconnect() error {
 	if s.client == nil {
 		return nil
