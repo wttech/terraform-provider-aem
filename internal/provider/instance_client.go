@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/utils"
+	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 )
 
@@ -86,7 +87,8 @@ func (ic *InstanceClient) create() error {
 
 func (ic *InstanceClient) saveProfileScript() error {
 	envFile := fmt.Sprintf("/etc/profile.d/%s.sh", ServiceName)
-	var envMap map[string]string
+	envMap := map[string]string{}
+	maps.Copy(envMap, ic.cl.Env)
 	ic.data.System.Env.ElementsAs(ic.ctx, &envMap, true)
 
 	ic.cl.Sudo = true
@@ -198,7 +200,7 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runScript("bootstrap", ic.data.System.Bootstrap.ValueString(), ".")
+	return ic.runScript("bootstrap", ic.data.System.BootstrapScript.ValueString(), ".")
 }
 
 func (ic *InstanceClient) runScript(name, cmdScript, dir string) error {

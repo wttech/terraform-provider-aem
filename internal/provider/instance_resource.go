@@ -41,12 +41,12 @@ type InstanceResourceModel struct {
 	} `tfsdk:"client"`
 	Files  types.Map `tfsdk:"files"`
 	System struct {
-		DataDir       types.String `tfsdk:"data_dir"`
-		WorkDir       types.String `tfsdk:"work_dir"`
-		Env           types.Map    `tfsdk:"env"`
-		ServiceConfig types.String `tfsdk:"service_config"`
-		User          types.String `tfsdk:"user"`
-		Bootstrap     types.String `tfsdk:"bootstrap"`
+		DataDir         types.String `tfsdk:"data_dir"`
+		WorkDir         types.String `tfsdk:"work_dir"`
+		Env             types.Map    `tfsdk:"env"`
+		ServiceConfig   types.String `tfsdk:"service_config"`
+		User            types.String `tfsdk:"user"`
+		BootstrapScript types.String `tfsdk:"bootstrap_script"`
 	} `tfsdk:"system"`
 	Compose struct {
 		Download     types.Bool   `tfsdk:"download"`
@@ -98,7 +98,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 			"system": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
-					"bootstrap": schema.StringAttribute{
+					"bootstrap_script": schema.StringAttribute{
 						MarkdownDescription: "Script executed once after connecting to the instance. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc. Forces instance recreation if changed.",
 						Optional:            true,
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},

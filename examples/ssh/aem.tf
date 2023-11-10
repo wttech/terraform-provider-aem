@@ -13,7 +13,7 @@ resource "aem_instance" "single" {
 
   system {
     data_dir  = local.aem_single_compose_dir
-    bootstrap = <<SHELL
+    bootstrap_script = <<SHELL
       #!/bin/sh
       (
         echo "Mounting EBS volume into data directory"
