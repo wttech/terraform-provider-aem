@@ -31,10 +31,11 @@ func (c ClientManager) connection(typeName string, settings map[string]string) (
 	switch typeName {
 	case "ssh":
 		return &SSHConnection{
-			host:           settings["host"],
-			user:           settings["user"],
-			privateKeyFile: settings["private_key_file"],
-			port:           cast.ToInt(settings["port"]),
+			host:       settings["host"],
+			user:       settings["user"],
+			privateKey: settings["private_key"],
+			port:       cast.ToInt(settings["port"]),
+			secure:     cast.ToBool(settings["secure"]),
 		}, nil
 	case "aws-ssm":
 		return &AWSSSMConnection{
