@@ -4,17 +4,18 @@ resource "aem_instance" "single" {
   client {
     type     = "ssh"
     settings = {
-      host        = aws_instance.aem_single.public_ip
-      port        = 22
-      user        = local.ssh_user
-      private_key = file(local.ssh_private_key)
-      secure      = false
+      host   = aws_instance.aem_single.public_ip
+      port   = 22
+      user   = local.ssh_user
+      secure = false
     }
-    // extract 'credentials' to 'sensitive' map
+    credentials = {
+      private_key = file(local.ssh_private_key)
+    }
   }
 
   system {
-    data_dir  = local.aem_single_compose_dir
+    data_dir         = local.aem_single_compose_dir
     bootstrap_script = <<SHELL
       #!/bin/sh
       (
@@ -36,7 +37,8 @@ resource "aem_instance" "single" {
     SHELL
   }
 
-  compose {} // must be at least empty
+  compose {}
+  // must be at least empty
 }
 
 locals {

@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
 	"github.com/wttech/terraform-provider-aem/internal/provider/instance"
+	"golang.org/x/exp/maps"
 	"time"
 )
 
@@ -36,8 +37,9 @@ type InstanceResource struct {
 
 type InstanceResourceModel struct {
 	Client struct {
-		Type     types.String `tfsdk:"type"`
-		Settings types.Map    `tfsdk:"settings"`
+		Type        types.String `tfsdk:"type"`
+		Settings    types.Map    `tfsdk:"settings"`
+		Credentials types.Map    `tfsdk:"credentials"`
 	} `tfsdk:"client"`
 	Files  types.Map `tfsdk:"files"`
 	System struct {
@@ -93,6 +95,12 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Settings for the connection type",
 						ElementType:         types.StringType,
 						Required:            true,
+					},
+					"credentials": schema.MapAttribute{
+						MarkdownDescription: "Credentials for the connection type",
+						ElementType:         types.StringType,
+						Optional:            true,
+						Sensitive:           true,
 					},
 				},
 			},
@@ -443,10 +451,7 @@ func (r *InstanceResource) client(ctx context.Context, model InstanceResourceMod
 	typeName := model.Client.Type.ValueString()
 	tflog.Info(ctx, fmt.Sprintf("Connecting to AEM instance machine using %s", typeName))
 
-	var settings map[string]string
-	model.Client.Settings.ElementsAs(ctx, &settings, true)
-
-	cl, err := r.clientManager.Make(typeName, settings)
+	cl, err := r.clientManager.Make(typeName, r.clientSettings(ctx, model))
 	if err != nil {
 		return nil, err
 	}
@@ -465,4 +470,16 @@ func (r *InstanceResource) client(ctx context.Context, model InstanceResourceMod
 
 	tflog.Info(ctx, fmt.Sprintf("Connected to AEM instance machine using %s", cl.Connection().Info()))
 	return &InstanceClient{cl, ctx, model}, nil
+}
+
+func (r *InstanceResource) clientSettings(ctx context.Context, model InstanceResourceModel) map[string]string {
+	var settings map[string]string
+	model.Client.Settings.ElementsAs(ctx, &settings, true)
+	var credentials map[string]string
+	model.Client.Credentials.ElementsAs(ctx, &credentials, true)
+
+	combined := map[string]string{}
+	maps.Copy(combined, credentials)
+	maps.Copy(combined, settings)
+	return combined
 }
