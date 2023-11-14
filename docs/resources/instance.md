@@ -19,6 +19,12 @@ AEM Instance resource
 
 - `client` (Block, Optional) (see [below for nested schema](#nestedblock--client))
 - `compose` (Block, Optional) (see [below for nested schema](#nestedblock--compose))
+- `files` (Map of String) Files or directories to be copied into the machine
+- `system` (Block, Optional) (see [below for nested schema](#nestedblock--system))
+
+### Read-Only
+
+- `instances` (Attributes List) (see [below for nested schema](#nestedatt--instances))
 
 <a id="nestedblock--client"></a>
 ### Nested Schema for `client`
@@ -28,14 +34,45 @@ Required:
 - `settings` (Map of String) Settings for the connection type
 - `type` (String) Type of connection to use to connect to the machine on which AEM instance will be running
 
+Optional:
+
+- `credentials` (Map of String, Sensitive) Credentials for the connection type
+
 
 <a id="nestedblock--compose"></a>
 ### Nested Schema for `compose`
 
 Optional:
 
-- `config_file` (String) Local path to the AEM configuration file
-- `data_dir` (String) Remote path in which AEM Compose data will be stored
-- `instance_id` (String) ID of the AEM instance to use (one of the instances defined in the configuration file)
-- `lib_dir` (String) Local path to directory from which AEM library files will be copied to the remote AEM machine
-- `version` (String) Version of AEM Compose tool to use on remote AEM machine
+- `config` (String) Contents of the AEM Compose YML configuration file.
+- `create_script` (String) Creates the instance or restores from backup. Forces instance recreation if changed.
+- `delete_script` (String) Deletes the instance.
+- `download` (Boolean) Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory.
+- `launch_script` (String) Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.
+- `version` (String) Version of AEM Compose tool to use on remote AEM machine.
+
+
+<a id="nestedblock--system"></a>
+### Nested Schema for `system`
+
+Optional:
+
+- `bootstrap_script` (String) Script executed once after connecting to the instance. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc. Forces instance recreation if changed.
+- `data_dir` (String) Remote root path in which AEM Compose files and unpacked instances will be stored
+- `env` (Map of String) Environment variables for AEM instances
+- `service_config` (String) Contents of the AEM 'systemd' service definition file
+- `user` (String) System user under which AEM instance will be running. By default, the same as the user used to connect to the machine.
+- `work_dir` (String) Remote root path in which AEM Compose TF provider temporary files will be stored
+
+
+<a id="nestedatt--instances"></a>
+### Nested Schema for `instances`
+
+Read-Only:
+
+- `aem_version` (String)
+- `attributes` (List of String)
+- `dir` (String)
+- `id` (String)
+- `run_modes` (List of String)
+- `url` (String)

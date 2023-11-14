@@ -2,7 +2,7 @@ resource "aem_instance" "single" {
   depends_on = [aws_instance.aem_single]
 
   client {
-    type     = "aws_ssm"
+    type = "aws_ssm"
     settings = {
       instance_id = aws_instance.aem_single.id
     }

@@ -23,7 +23,7 @@ resource "aws_iam_role" "aem_ec2" {
     }
   }
   EOF
-  tags = local.tags
+  tags               = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {

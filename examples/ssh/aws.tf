@@ -9,9 +9,9 @@ resource "aws_instance" "aem_single" {
 
 resource "aws_ebs_volume" "aem_single_data" {
   availability_zone = aws_instance.aem_single.availability_zone
-  size = 128
-  type = "gp2"
-  tags = local.tags
+  size              = 128
+  type              = "gp2"
+  tags              = local.tags
 }
 
 resource "aws_volume_attachment" "aem_single_data" {
@@ -48,7 +48,7 @@ resource "aws_iam_role" "aem_ec2" {
     }
   }
 EOF
-  tags = local.tags
+  tags               = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "s3" {

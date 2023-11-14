@@ -2,7 +2,7 @@ resource "aem_instance" "single" {
   depends_on = [aws_instance.aem_single, aws_volume_attachment.aem_single_data]
 
   client {
-    type     = "ssh"
+    type = "ssh"
     settings = {
       host   = aws_instance.aem_single.public_ip
       port   = 22
