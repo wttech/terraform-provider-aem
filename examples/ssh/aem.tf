@@ -37,8 +37,7 @@ resource "aem_instance" "single" {
     SHELL
   }
 
-  compose {}
-  // must be at least empty
+  compose {} // must be at least empty
 }
 
 locals {

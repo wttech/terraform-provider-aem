@@ -35,6 +35,8 @@ resource "aem_instance" "single" {
       private_key = file(local.ssh_private_key)
     }
   }
+
+  compose {}
 }
 
 locals {
@@ -84,6 +86,7 @@ resource "aem_instance" "single" {
       )
     SHELL
   }
+  
   compose {}
 }
 
