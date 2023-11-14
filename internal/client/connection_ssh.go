@@ -11,25 +11,44 @@ import (
 type SSHConnection struct {
 	client *goph.Client
 
-	host           string
-	user           string
-	passphrase     string
-	privateKeyFile string
-	port           int
+	host       string
+	user       string
+	passphrase string
+	privateKey string
+	port       int
+	secure     bool
 }
 
 func (s *SSHConnection) Connect() error {
-	auth, err := goph.Key(s.privateKeyFile, s.passphrase)
+	if s.host == "" {
+		return fmt.Errorf("ssh: host is required")
+	}
+	if s.user == "" {
+		return fmt.Errorf("ssh: user is required")
+	}
+	if s.privateKey == "" {
+		return fmt.Errorf("ssh: private key is required")
+	}
+	if s.port == 0 {
+		s.port = 22
+	}
+	signer, err := ssh.ParsePrivateKey([]byte(s.privateKey))
 	if err != nil {
-		return fmt.Errorf("ssh: cannot get auth using private key '%s': %w", s.privateKeyFile, err)
+		return fmt.Errorf("ssh: cannot parse private key: %w", err)
+	}
+	var callback ssh.HostKeyCallback
+	if s.secure {
+		callback = ssh.FixedHostKey(signer.PublicKey())
+	} else {
+		callback = ssh.InsecureIgnoreHostKey()
 	}
 	client, err := goph.NewConn(&goph.Config{
 		User:     s.user,
 		Addr:     s.host,
 		Port:     cast.ToUint(s.port),
-		Auth:     auth,
+		Auth:     goph.Auth{ssh.PublicKeys(signer)},
 		Timeout:  goph.DefaultTimeout,
-		Callback: ssh.InsecureIgnoreHostKey(), // TODO make it secure by default
+		Callback: callback,
 	})
 	if err != nil {
 		return fmt.Errorf("ssh: cannot connect to host '%s': %w", s.host, err)

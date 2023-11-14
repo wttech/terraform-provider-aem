@@ -87,9 +87,13 @@ func (ic *InstanceClient) create() error {
 
 func (ic *InstanceClient) saveProfileScript() error {
 	envFile := fmt.Sprintf("/etc/profile.d/%s.sh", ServiceName)
+
+	var systemEnvMap map[string]string
+	ic.data.System.Env.ElementsAs(ic.ctx, &systemEnvMap, true)
+
 	envMap := map[string]string{}
 	maps.Copy(envMap, ic.cl.Env)
-	ic.data.System.Env.ElementsAs(ic.ctx, &envMap, true)
+	maps.Copy(envMap, systemEnvMap)
 
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()

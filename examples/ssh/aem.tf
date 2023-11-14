@@ -4,15 +4,18 @@ resource "aem_instance" "single" {
   client {
     type     = "ssh"
     settings = {
-      host             = aws_instance.aem_single.public_ip
-      port             = 22
-      user             = local.ssh_user
-      private_key_file = local.ssh_private_key # cannot be put into state as this is OS-dependent
+      host   = aws_instance.aem_single.public_ip
+      port   = 22
+      user   = local.ssh_user
+      secure = false
+    }
+    credentials = {
+      private_key = file(local.ssh_private_key)
     }
   }
 
   system {
-    data_dir  = local.aem_single_compose_dir
+    data_dir         = local.aem_single_compose_dir
     bootstrap_script = <<SHELL
       #!/bin/sh
       (
@@ -34,7 +37,8 @@ resource "aem_instance" "single" {
     SHELL
   }
 
-  compose {} // TODO must be at least empty; TF plugin framework bug?
+  compose {}
+  // must be at least empty
 }
 
 locals {
