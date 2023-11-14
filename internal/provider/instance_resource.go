@@ -106,10 +106,20 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 			},
 			"system": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
-					"bootstrap_script": schema.StringAttribute{
+					"bootstrap": schema.SingleNestedAttribute{
 						MarkdownDescription: "Script executed once after connecting to the instance. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc. Forces instance recreation if changed.",
 						Optional:            true,
-						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"inline": schema.ListAttribute{
+								Optional:      true,
+								ElementType:   types.StringType,
+								PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+							},
+							"script": schema.StringAttribute{
+								Optional:      true,
+								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							},
+						},
 					},
 					"data_dir": schema.StringAttribute{
 						MarkdownDescription: "Remote root path in which AEM Compose files and unpacked instances will be stored",
@@ -167,24 +177,55 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Optional:            true,
 						Default:             stringdefault.StaticString(instance.ConfigYML),
 					},
-					"create_script": schema.StringAttribute{
+					"create": schema.SingleNestedAttribute{
 						MarkdownDescription: "Creates the instance or restores from backup. Forces instance recreation if changed.",
 						Optional:            true,
 						Computed:            true,
-						Default:             stringdefault.StaticString(instance.CreateScript),
-						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+						Attributes: map[string]schema.Attribute{
+							"inline": schema.ListAttribute{
+								Optional:      true,
+								ElementType:   types.StringType,
+								PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
+							},
+							"script": schema.StringAttribute{
+								Optional:      true,
+								Computed:      true,
+								Default:       stringdefault.StaticString(instance.CreateScript),
+								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+							},
+						},
 					},
-					"launch_script": schema.StringAttribute{
+					"launch": schema.SingleNestedAttribute{
 						MarkdownDescription: "Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
 						Computed:            true,
-						Default:             stringdefault.StaticString(instance.LaunchScript),
+						Attributes: map[string]schema.Attribute{
+							"inline": schema.ListAttribute{
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"script": schema.StringAttribute{
+								Optional: true,
+								Computed: true,
+								Default:  stringdefault.StaticString(instance.LaunchScript),
+							},
+						},
 					},
-					"delete_script": schema.StringAttribute{
+					"delete": schema.SingleNestedAttribute{
 						MarkdownDescription: "Deletes the instance.",
 						Optional:            true,
 						Computed:            true,
-						Default:             stringdefault.StaticString(instance.DeleteScript),
+						Attributes: map[string]schema.Attribute{
+							"inline": schema.ListAttribute{
+								Optional:    true,
+								ElementType: types.StringType,
+							},
+							"script": schema.StringAttribute{
+								Optional: true,
+								Computed: true,
+								Default:  stringdefault.StaticString(instance.DeleteScript),
+							},
+						},
 					},
 				},
 			},
