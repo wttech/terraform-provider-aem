@@ -157,7 +157,7 @@ func (ic *InstanceClient) launch() error {
 	return nil
 }
 
-// TODO consider using "delete --kill"
+// TODO consider using "delete --kill".
 func (ic *InstanceClient) terminate() error {
 	tflog.Info(ic.ctx, "Terminating AEM instance(s)")
 	if err := ic.runServiceAction("stop"); err != nil {

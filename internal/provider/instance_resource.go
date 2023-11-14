@@ -150,13 +150,13 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 
 				Attributes: map[string]schema.Attribute{
 					"download": schema.BoolAttribute{
-						MarkdownDescription: fmt.Sprintf("Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory."),
+						MarkdownDescription: "Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory.",
 						Computed:            true,
 						Optional:            true,
 						Default:             booldefault.StaticBool(true),
 					},
 					"version": schema.StringAttribute{
-						MarkdownDescription: fmt.Sprintf("Version of AEM Compose tool to use on remote AEM machine."),
+						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine.",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("1.5.8"),

@@ -11,12 +11,13 @@ import (
 type SSHConnection struct {
 	client *goph.Client
 
-	host       string
-	user       string
-	passphrase string
-	privateKey string
-	port       int
-	secure     bool
+	host                 string
+	user                 string
+	passphrase           string
+	privateKey           string
+	privateKeyPassphrase string
+	port                 int
+	secure               bool
 }
 
 func (s *SSHConnection) Connect() error {
@@ -32,9 +33,20 @@ func (s *SSHConnection) Connect() error {
 	if s.port == 0 {
 		s.port = 22
 	}
-	signer, err := ssh.ParsePrivateKey([]byte(s.privateKey))
-	if err != nil {
-		return fmt.Errorf("ssh: cannot parse private key: %w", err)
+	var (
+		signer ssh.Signer
+		err    error
+	)
+	if s.passphrase != "" {
+		signer, err = ssh.ParsePrivateKeyWithPassphrase([]byte(s.privateKey), []byte(s.passphrase))
+		if err != nil {
+			return fmt.Errorf("ssh: cannot parse private key with passphrase: %w", err)
+		}
+	} else {
+		signer, err = ssh.ParsePrivateKey([]byte(s.privateKey))
+		if err != nil {
+			return fmt.Errorf("ssh: cannot parse private key: %w", err)
+		}
 	}
 	var callback ssh.HostKeyCallback
 	if s.secure {
