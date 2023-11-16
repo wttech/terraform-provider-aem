@@ -34,7 +34,6 @@ resource "aem_instance" "single" {
   }
 
   compose {
-    config = file("aem.yml")
     create = {
       inline = [
         "mkdir -p '${local.aem_single_compose_dir}/aem/home/lib'",
