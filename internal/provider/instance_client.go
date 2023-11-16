@@ -78,7 +78,7 @@ func (ic *InstanceClient) create() error {
 	if err := ic.saveProfileScript(); err != nil {
 		return err
 	}
-	if err := ic.runScript("create", ic.data.Compose.CreateScript.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("create", ic.data.Compose.Create, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Created AEM instance(s)")
@@ -150,7 +150,7 @@ func (ic *InstanceClient) launch() error {
 	if err := ic.runServiceAction("start"); err != nil {
 		return err
 	}
-	if err := ic.runScript("launch", ic.data.Compose.LaunchScript.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Launched AEM instance(s)")
@@ -163,7 +163,7 @@ func (ic *InstanceClient) terminate() error {
 	if err := ic.runServiceAction("stop"); err != nil {
 		return err
 	}
-	if err := ic.runScript("delete", ic.data.Compose.DeleteScript.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("delete", ic.data.Compose.Delete, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Terminated AEM instance(s)")
@@ -204,24 +204,38 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runScript("bootstrap", ic.data.System.BootstrapScript.ValueString(), ".")
+	return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".")
 }
 
-func (ic *InstanceClient) runScript(name, cmdScript, dir string) error {
-	if cmdScript == "" {
-		return nil
+func (ic *InstanceClient) runScript(name string, script InstanceScript, dir string) error {
+	scriptCmd := script.Script.ValueString()
+	inlineCmds := []string{}
+	diags := script.Inline.ElementsAs(ic.ctx, &inlineCmds, true)
+	if diags.HasError() {
+		return fmt.Errorf("unable to parse script '%s' properly: %s", name, diags)
 	}
 
-	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
-
-	textOut, err := ic.cl.RunShellScript(name, cmdScript, dir)
-	if err != nil {
-		return fmt.Errorf("unable to execute script '%s' properly: %w", name, err)
+	if scriptCmd != "" {
+		tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
+		textOut, err := ic.cl.RunShellScript(name, scriptCmd, dir)
+		if err != nil {
+			return fmt.Errorf("unable to execute script '%s' properly: %w", name, err)
+		}
+		textStr := string(textOut)
+		tflog.Info(ic.ctx, fmt.Sprintf("Executed instance script '%s'", name))
+		tflog.Info(ic.ctx, textStr)
 	}
-	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
-
-	tflog.Info(ic.ctx, fmt.Sprintf("Executed instance script '%s'", name))
-	tflog.Info(ic.ctx, textStr)
-
+	if len(inlineCmds) > 0 {
+		for i, cmd := range inlineCmds {
+			tflog.Info(ic.ctx, fmt.Sprintf("Executing command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
+			textOut, err := ic.cl.RunShellCommand(cmd)
+			if err != nil {
+				return fmt.Errorf("unable to execute command '%s' of script '%s' properly: %w", cmd, name, err)
+			}
+			textStr := string(textOut)
+			tflog.Info(ic.ctx, fmt.Sprintf("Executed command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
+			tflog.Info(ic.ctx, textStr)
+		}
+	}
 	return nil
 }

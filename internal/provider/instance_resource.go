@@ -9,13 +9,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/defaults"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/wttech/terraform-provider-aem/internal/client"
 	"github.com/wttech/terraform-provider-aem/internal/provider/instance"
@@ -43,22 +46,50 @@ type InstanceResourceModel struct {
 	} `tfsdk:"client"`
 	Files  types.Map `tfsdk:"files"`
 	System struct {
-		DataDir         types.String `tfsdk:"data_dir"`
-		WorkDir         types.String `tfsdk:"work_dir"`
-		Env             types.Map    `tfsdk:"env"`
-		ServiceConfig   types.String `tfsdk:"service_config"`
-		User            types.String `tfsdk:"user"`
-		BootstrapScript types.String `tfsdk:"bootstrap_script"`
+		DataDir       types.String   `tfsdk:"data_dir"`
+		WorkDir       types.String   `tfsdk:"work_dir"`
+		Env           types.Map      `tfsdk:"env"`
+		ServiceConfig types.String   `tfsdk:"service_config"`
+		User          types.String   `tfsdk:"user"`
+		Bootstrap     InstanceScript `tfsdk:"bootstrap"`
 	} `tfsdk:"system"`
 	Compose struct {
-		Download     types.Bool   `tfsdk:"download"`
-		Version      types.String `tfsdk:"version"`
-		Config       types.String `tfsdk:"config"`
-		CreateScript types.String `tfsdk:"create_script"`
-		LaunchScript types.String `tfsdk:"launch_script"`
-		DeleteScript types.String `tfsdk:"delete_script"`
+		Download types.Bool     `tfsdk:"download"`
+		Version  types.String   `tfsdk:"version"`
+		Config   types.String   `tfsdk:"config"`
+		Create   InstanceScript `tfsdk:"create"`
+		Launch   InstanceScript `tfsdk:"launch"`
+		Delete   InstanceScript `tfsdk:"delete"`
 	} `tfsdk:"compose"`
 	Instances types.List `tfsdk:"instances"`
+}
+
+type InstanceScript struct {
+	Inline types.List   `tfsdk:"inline"`
+	Script types.String `tfsdk:"script"`
+}
+
+func instanceScriptSchemaDefault(inline []string, script string) defaults.Object {
+	var inlineValue basetypes.ListValue
+	if inline == nil {
+		inlineValue = types.ListNull(types.StringType)
+	} else {
+		inlineValues := make([]attr.Value, len(inline))
+		for i, v := range inline {
+			inlineValues[i] = types.StringValue(v)
+		}
+		inlineValue = types.ListValueMust(types.StringType, inlineValues)
+	}
+	return objectdefault.StaticValue(types.ObjectValueMust(
+		map[string]attr.Type{
+			"inline": types.ListType{ElemType: types.StringType},
+			"script": types.StringType,
+		},
+		map[string]attr.Value{
+			"inline": inlineValue,
+			"script": types.StringValue(script),
+		},
+	))
 }
 
 type InstanceStatusItemModel struct {
@@ -70,6 +101,7 @@ type InstanceStatusItemModel struct {
 	RunModes   types.List   `tfsdk:"run_modes"`
 }
 
+// fix for https://github.com/hashicorp/terraform-plugin-framework/issues/713
 func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"id":          types.StringType,
@@ -157,7 +189,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"compose": schema.SingleNestedBlock{
-
+				MarkdownDescription: "AEM Compose CLI configuration",
 				Attributes: map[string]schema.Attribute{
 					"download": schema.BoolAttribute{
 						MarkdownDescription: "Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory.",
@@ -181,6 +213,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Creates the instance or restores from backup. Forces instance recreation if changed.",
 						Optional:            true,
 						Computed:            true,
+						Default:             instanceScriptSchemaDefault(nil, instance.CreateScript),
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
 								Optional:      true,
@@ -199,6 +232,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
 						Computed:            true,
+						Default:             instanceScriptSchemaDefault(nil, instance.LaunchScript),
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
 								Optional:    true,
@@ -215,6 +249,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Deletes the instance.",
 						Optional:            true,
 						Computed:            true,
+						Default:             instanceScriptSchemaDefault(nil, instance.DeleteScript),
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
 								Optional:    true,

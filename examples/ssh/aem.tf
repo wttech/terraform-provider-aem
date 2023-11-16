@@ -15,8 +15,9 @@ resource "aem_instance" "single" {
   }
 
   system {
-    data_dir         = local.aem_single_compose_dir
-    bootstrap_script = <<SHELL
+    data_dir = local.aem_single_compose_dir
+    bootstrap = {
+      script = <<SHELL
       #!/bin/sh
       (
         echo "Mounting EBS volume into data directory"
@@ -34,10 +35,10 @@ resource "aem_instance" "single" {
         mkdir -p "${local.aem_single_compose_dir}/aem/home/lib" && \
         aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "${local.aem_single_compose_dir}/aem/home/lib"
       )
-    SHELL
+      SHELL
+    }
   }
-
-  compose {} // must be at least empty
+  compose {}
 }
 
 locals {
