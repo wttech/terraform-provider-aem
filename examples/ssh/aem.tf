@@ -17,25 +17,21 @@ resource "aem_instance" "single" {
   system {
     data_dir = local.aem_single_compose_dir
     bootstrap = {
-      script = <<SHELL
-      #!/bin/sh
-      (
-        echo "Mounting EBS volume into data directory"
-        sudo mkfs -t ext4 ${local.aem_single_data_device} && \
-        sudo mkdir -p ${local.aem_single_data_dir} && \
-        sudo mount ${local.aem_single_data_device} ${local.aem_single_data_dir} && \
-        sudo chown -R ${local.ssh_user} ${local.aem_single_data_dir} && \
-        echo '${local.aem_single_data_device} ${local.aem_single_data_dir} ext4 defaults 0 0' | sudo tee -a /etc/fstab
-      ) && (
-        echo "Copying AEM library files"
-        sudo yum install -y unzip && \
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-        unzip -q awscliv2.zip && \
-        sudo ./aws/install --update && \
-        mkdir -p "${local.aem_single_compose_dir}/aem/home/lib" && \
-        aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "${local.aem_single_compose_dir}/aem/home/lib"
-      )
-      SHELL
+      inline = [
+        // mounting EBS volume into data directory
+        "sudo mkfs -t ext4 ${local.aem_single_data_device}",
+        "sudo mkdir -p ${local.aem_single_data_dir}",
+        "sudo mount ${local.aem_single_data_device} ${local.aem_single_data_dir}",
+        "sudo chown -R ${local.ssh_user} ${local.aem_single_data_dir}",
+        "echo '${local.aem_single_data_device} ${local.aem_single_data_dir} ext4 defaults 0 0' | sudo tee -a /etc/fstab",
+        // copying AEM library files from S3
+        "sudo yum install -y unzip",
+        "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
+        "unzip -q awscliv2.zip",
+        "sudo ./aws/install --update",
+        "mkdir -p '${local.aem_single_compose_dir}/aem/home/lib'",
+        "aws s3 cp --recursive --no-progress 's3://aemc/instance/classic/' '${local.aem_single_compose_dir}/aem/home/lib'",
+      ]
     }
   }
 

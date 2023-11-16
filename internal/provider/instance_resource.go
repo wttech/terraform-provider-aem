@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/defaults"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
@@ -68,27 +69,32 @@ type InstanceScript struct {
 	Script types.String `tfsdk:"script"`
 }
 
-func instanceScriptSchemaDefault(inline []string, script string) defaults.Object {
-	var inlineValue basetypes.ListValue
-	if inline == nil {
-		inlineValue = types.ListNull(types.StringType)
-	} else {
-		inlineValues := make([]attr.Value, len(inline))
-		for i, v := range inline {
-			inlineValues[i] = types.StringValue(v)
-		}
-		inlineValue = types.ListValueMust(types.StringType, inlineValues)
-	}
+// workaround for https://github.com/hashicorp/terraform-plugin-framework/issues/777
+func instanceScriptSchemaDefault(inline []string, script *string) defaults.Object {
 	return objectdefault.StaticValue(types.ObjectValueMust(
 		map[string]attr.Type{
 			"inline": types.ListType{ElemType: types.StringType},
 			"script": types.StringType,
 		},
 		map[string]attr.Value{
-			"inline": inlineValue,
-			"script": types.StringValue(script),
+			"inline": instanceScriptSchemaInlineValue(inline),
+			"script": types.StringPointerValue(script),
 		},
 	))
+}
+
+func instanceScriptSchemaInlineValue(inline []string) basetypes.ListValue {
+	var result basetypes.ListValue
+	if inline == nil {
+		result = types.ListNull(types.StringType)
+	} else {
+		vals := make([]attr.Value, len(inline))
+		for i, v := range inline {
+			vals[i] = types.StringValue(v)
+		}
+		result = types.ListValueMust(types.StringType, vals)
+	}
+	return result
 }
 
 type InstanceStatusItemModel struct {
@@ -210,17 +216,17 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Creates the instance or restores from backup. Forces instance recreation if changed.",
 						Optional:            true,
 						Computed:            true,
-						Default:             instanceScriptSchemaDefault(nil, instance.CreateScript),
+						Default:             instanceScriptSchemaDefault(instance.CreateScriptInline, nil),
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
-								Optional:      true,
 								ElementType:   types.StringType,
+								Optional:      true,
+								Computed:      true,
+								Default:       listdefault.StaticValue(instanceScriptSchemaInlineValue(instance.CreateScriptInline)),
 								PlanModifiers: []planmodifier.List{listplanmodifier.RequiresReplace()},
 							},
 							"script": schema.StringAttribute{
 								Optional:      true,
-								Computed:      true,
-								Default:       stringdefault.StaticString(instance.CreateScript),
 								PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 							},
 						},
@@ -229,16 +235,16 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.",
 						Optional:            true,
 						Computed:            true,
-						Default:             instanceScriptSchemaDefault(nil, instance.LaunchScript),
+						Default:             instanceScriptSchemaDefault(instance.LaunchScriptInline, nil),
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
-								Optional:    true,
 								ElementType: types.StringType,
+								Optional:    true,
+								Computed:    true,
+								Default:     listdefault.StaticValue(instanceScriptSchemaInlineValue(instance.LaunchScriptInline)),
 							},
 							"script": schema.StringAttribute{
 								Optional: true,
-								Computed: true,
-								Default:  stringdefault.StaticString(instance.LaunchScript),
 							},
 						},
 					},
@@ -246,16 +252,16 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Deletes the instance.",
 						Optional:            true,
 						Computed:            true,
-						Default:             instanceScriptSchemaDefault(nil, instance.DeleteScript),
+						Default:             instanceScriptSchemaDefault(instance.DeleteScriptInline, nil),
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
-								Optional:    true,
 								ElementType: types.StringType,
+								Optional:    true,
+								Computed:    true,
+								Default:     listdefault.StaticValue(instanceScriptSchemaInlineValue(instance.DeleteScriptInline)),
 							},
 							"script": schema.StringAttribute{
 								Optional: true,
-								Computed: true,
-								Default:  stringdefault.StaticString(instance.DeleteScript),
 							},
 						},
 					},

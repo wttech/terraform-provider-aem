@@ -41,7 +41,7 @@ func (ic *InstanceClient) installComposeCLI() error {
 	}
 	if !exists {
 		tflog.Info(ic.ctx, "Downloading AEM Compose CLI wrapper")
-		out, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.dataDir()))
+		out, err := ic.cl.RunShellCommand("curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.dataDir())
 		tflog.Info(ic.ctx, string(out))
 		if err != nil {
 			return fmt.Errorf("cannot download AEM Compose CLI wrapper: %w", err)
@@ -136,7 +136,7 @@ func (ic *InstanceClient) runServiceAction(action string) error {
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()
 
-	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ServiceName))
+	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ServiceName), ".")
 	if err != nil {
 		return fmt.Errorf("unable to perform AEM system service action '%s': %w", action, err)
 	}
@@ -193,7 +193,7 @@ type InstanceStatus struct {
 
 func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 	var status InstanceStatus
-	yamlBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.dataDir()))
+	yamlBytes, err := ic.cl.RunShellCommand("sh aemw instance status --output-format yaml", ic.dataDir())
 	if err != nil {
 		return status, err
 	}
@@ -228,7 +228,7 @@ func (ic *InstanceClient) runScript(name string, script InstanceScript, dir stri
 	if len(inlineCmds) > 0 {
 		for i, cmd := range inlineCmds {
 			tflog.Info(ic.ctx, fmt.Sprintf("Executing command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
-			textOut, err := ic.cl.RunShellCommand(cmd)
+			textOut, err := ic.cl.RunShellCommand(cmd, dir)
 			if err != nil {
 				return fmt.Errorf("unable to execute command '%s' of script '%s' properly: %w", cmd, name, err)
 			}

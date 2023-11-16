@@ -87,8 +87,11 @@ func (c Client) envScriptString() string {
 	return utils.EnvToScript(c.Env)
 }
 
-func (c Client) RunShellCommand(cmd string) ([]byte, error) {
-	return c.RunShellPurely(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
+func (c Client) RunShellCommand(cmd string, dir string) ([]byte, error) {
+	if dir == "" || dir == "." {
+		return c.RunShellPurely(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
+	}
+	return c.RunShellPurely(fmt.Sprintf("source %s && cd %s && %s", c.envScriptPath(), dir, cmd))
 }
 
 func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]byte, error) {
@@ -97,7 +100,7 @@ func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]
 		return nil, fmt.Errorf("cannot write temporary script at remote path '%s': %w", remotePath, err)
 	}
 	defer func() { _ = c.FileDelete(remotePath) }()
-	return c.RunShellCommand(fmt.Sprintf("cd %s && sh %s", dir, remotePath))
+	return c.RunShellCommand(fmt.Sprintf("sh %s", remotePath), dir)
 }
 
 func (c Client) RunShellPurely(cmd string) ([]byte, error) {
@@ -212,6 +215,10 @@ func (c Client) FileCopy(localPath string, remotePath string, override bool) err
 		remoteTmpPath = fmt.Sprintf("%s/%s.tmp", c.WorkDir, filepath.Base(remotePath))
 	} else {
 		remoteTmpPath = fmt.Sprintf("%s.tmp", remotePath)
+	}
+	err := c.FileDelete(remoteTmpPath)
+	if err != nil {
+		return err
 	}
 	defer func() { _ = c.FileDelete(remoteTmpPath) }()
 	if err := c.connection.CopyFile(localPath, remoteTmpPath); err != nil {
