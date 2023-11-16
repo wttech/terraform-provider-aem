@@ -116,7 +116,7 @@ func (c Client) RunShellPurely(cmd string) ([]byte, error) {
 	}
 	out, err := cmdObj.CombinedOutput()
 	if err != nil {
-		if len(out) > 0 { // TODO rethink error handling
+		if len(out) > 0 {
 			return nil, fmt.Errorf("cannot run command '%s': %w\n\n%s", cmdObj, err, string(out))
 		}
 		return nil, err

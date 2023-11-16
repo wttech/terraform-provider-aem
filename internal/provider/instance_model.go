@@ -260,7 +260,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 		},
 
 		Attributes: map[string]schema.Attribute{
-			"files": schema.MapAttribute{ // TODO handle it, instead of copying lib dir
+			"files": schema.MapAttribute{
 				MarkdownDescription: "Files or directories to be copied into the machine",
 				ElementType:         types.StringType,
 				Computed:            true,
@@ -292,13 +292,6 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 							Computed: true,
 						},
 					},
-				},
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
-					listplanmodifier.RequiresReplaceIf(func(ctx context.Context, request planmodifier.ListRequest, response *listplanmodifier.RequiresReplaceIfFuncResponse) {
-						// TODO check if: [1] list is not empty; [2] the same instances are still created; [3] dirs have not changed
-						// response.RequiresReplace = true
-					}, "If the value of this attribute changes, Terraform will destroy and recreate the resource.", "If the value of this attribute changes, Terraform will destroy and recreate the resource."),
 				},
 			},
 		},

@@ -28,7 +28,7 @@ instance:
       http_url: http://127.0.0.1:4503
       user: admin
       password: admin
-      run_modes: [local, duperp]
+      run_modes: [local]
       jvm_opts:
         - -server
         - -Djava.awt.headless=true
