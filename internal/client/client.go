@@ -87,13 +87,6 @@ func (c Client) envScriptString() string {
 	return utils.EnvToScript(c.Env)
 }
 
-func (c Client) RunShellCommand(cmd string, dir string) ([]byte, error) {
-	if dir == "" || dir == "." {
-		return c.RunShellPurely(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
-	}
-	return c.RunShellPurely(fmt.Sprintf("source %s && cd %s && %s", c.envScriptPath(), dir, cmd))
-}
-
 func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]byte, error) {
 	remotePath := fmt.Sprintf("%s/%s.sh", c.WorkDir, cmdName)
 	if err := c.FileWrite(remotePath, cmdScript); err != nil {
@@ -101,6 +94,13 @@ func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]
 	}
 	defer func() { _ = c.FileDelete(remotePath) }()
 	return c.RunShellCommand(fmt.Sprintf("sh %s", remotePath), dir)
+}
+
+func (c Client) RunShellCommand(cmd string, dir string) ([]byte, error) {
+	if dir == "" || dir == "." {
+		return c.RunShellPurely(fmt.Sprintf("source %s && %s", c.envScriptPath(), cmd))
+	}
+	return c.RunShellPurely(fmt.Sprintf("source %s && cd %s && %s", c.envScriptPath(), dir, cmd))
 }
 
 func (c Client) RunShellPurely(cmd string) ([]byte, error) {

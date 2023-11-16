@@ -244,7 +244,7 @@ func (ic *InstanceClient) runScript(name string, script InstanceScript, dir stri
 	if len(inlineCmds) > 0 {
 		for i, cmd := range inlineCmds {
 			tflog.Info(ic.ctx, fmt.Sprintf("Executing command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
-			textOut, err := ic.cl.RunShellCommand(cmd, dir)
+			textOut, err := ic.cl.RunShellScript(name, cmd, dir)
 			if err != nil {
 				return fmt.Errorf("unable to execute command '%s' of script '%s' properly: %w", cmd, name, err)
 			}
