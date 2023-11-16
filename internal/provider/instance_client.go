@@ -162,14 +162,14 @@ func (ic *InstanceClient) launch() error {
 }
 
 func (ic *InstanceClient) applyConfig() error {
-	tflog.Info(ic.ctx, fmt.Sprintf("Applying AEM instance configuration"))
+	tflog.Info(ic.ctx, "Applying AEM instance configuration")
 	outBytes, err := ic.cl.RunShellCommand("sh aemw instance launch", ic.dataDir())
 	if err != nil {
 		return fmt.Errorf("unable to apply AEM instance configuration: %w", err)
 	}
 	outText := string(outBytes)
 	tflog.Info(ic.ctx, outText)
-	tflog.Info(ic.ctx, fmt.Sprintf("Applied AEM instance configuration"))
+	tflog.Info(ic.ctx, "Applied AEM instance configuration")
 	return nil
 }
 
