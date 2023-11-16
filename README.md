@@ -65,29 +65,34 @@ resource "aem_instance" "single" {
   }
 
   system {
-    data_dir         = local.aem_single_compose_dir
-    bootstrap_script = <<SHELL
-      #!/bin/sh
-      (
-        echo "Mounting EBS volume into data directory"
-        sudo mkfs -t ext4 ${local.aem_single_data_device} && \
-        sudo mkdir -p ${local.aem_single_data_dir} && \
-        sudo mount ${local.aem_single_data_device} ${local.aem_single_data_dir} && \
-        sudo chown -R ${local.ssh_user} ${local.aem_single_data_dir} && \
-        echo '${local.aem_single_data_device} ${local.aem_single_data_dir} ext4 defaults 0 0' | sudo tee -a /etc/fstab
-      ) && (
-        echo "Copying AEM library files"
-        sudo yum install -y unzip && \
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
-        unzip -q awscliv2.zip && \
-        sudo ./aws/install --update && \
-        mkdir -p "${local.aem_single_compose_dir}/aem/home/lib" && \
-        aws s3 cp --recursive --no-progress "s3://aemc/instance/classic/" "${local.aem_single_compose_dir}/aem/home/lib"
-      )
-    SHELL
+    data_dir = local.aem_single_compose_dir
+    bootstrap = {
+      inline = [
+        // mounting AWS EBS volume into data directory
+        "sudo mkfs -t ext4 ${local.aem_single_data_device}",
+        "sudo mkdir -p ${local.aem_single_data_dir}",
+        "sudo mount ${local.aem_single_data_device} ${local.aem_single_data_dir}",
+        "sudo chown -R ${local.ssh_user} ${local.aem_single_data_dir}",
+        "echo '${local.aem_single_data_device} ${local.aem_single_data_dir} ext4 defaults 0 0' | sudo tee -a /etc/fstab",
+        // installing AWS CLI
+        "sudo yum install -y unzip",
+        "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
+        "unzip -q awscliv2.zip",
+        "sudo ./aws/install --update",
+      ]
+    }
   }
-  
-  compose {}
+
+  compose {
+    create = {
+      inline = [
+        "mkdir -p '${local.aem_single_compose_dir}/aem/home/lib'",
+        "aws s3 cp --recursive --no-progress 's3://aemc/instance/classic/' '${local.aem_single_compose_dir}/aem/home/lib'",
+        "sh aemw instance init",
+        "sh aemw instance create",
+      ]
+    }
+  }
 }
 
 locals {
@@ -100,7 +105,6 @@ locals {
 output "aem_instances" {
   value = aem_instance.single.instances
 }
-
 ```
 
 ## Requirements

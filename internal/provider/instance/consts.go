@@ -2,7 +2,7 @@ package instance
 
 import _ "embed"
 
-//go:embed config.yml
+//go:embed aem.yml
 var ConfigYML string
 
 //go:embed systemd.conf

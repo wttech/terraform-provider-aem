@@ -23,10 +23,6 @@ func (ic *InstanceClient) dataDir() string {
 	return ic.data.System.DataDir.ValueString()
 }
 
-func (ic *InstanceClient) lockFile(name string) string {
-	return fmt.Sprintf("%s/provider/%s.lock", ic.dataDir(), name)
-}
-
 func (ic *InstanceClient) prepareWorkDir() error {
 	return ic.cl.DirEnsure(ic.cl.WorkDir)
 }
@@ -83,7 +79,7 @@ func (ic *InstanceClient) create() error {
 	if err := ic.saveProfileScript(); err != nil {
 		return err
 	}
-	if err := ic.runScript("create", ic.data.Compose.Create, ic.dataDir(), true); err != nil {
+	if err := ic.runScript("create", ic.data.Compose.Create, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Created AEM instance(s)")
@@ -155,20 +151,34 @@ func (ic *InstanceClient) launch() error {
 	if err := ic.runServiceAction("start"); err != nil {
 		return err
 	}
-	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir(), false); err != nil {
+	if err := ic.applyConfig(); err != nil {
+		return err
+	}
+	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Launched AEM instance(s)")
 	return nil
 }
 
-// TODO consider using "delete --kill".
+func (ic *InstanceClient) applyConfig() error {
+	tflog.Info(ic.ctx, fmt.Sprintf("Applying AEM instance configuration"))
+	outBytes, err := ic.cl.RunShellCommand("sh aemw instance launch", ic.dataDir())
+	if err != nil {
+		return fmt.Errorf("unable to apply AEM instance configuration: %w", err)
+	}
+	outText := string(outBytes)
+	tflog.Info(ic.ctx, outText)
+	tflog.Info(ic.ctx, fmt.Sprintf("Applied AEM instance configuration"))
+	return nil
+}
+
 func (ic *InstanceClient) terminate() error {
 	tflog.Info(ic.ctx, "Terminating AEM instance(s)")
 	if err := ic.runServiceAction("stop"); err != nil {
 		return err
 	}
-	if err := ic.runScript("delete", ic.data.Compose.Delete, ic.dataDir(), false); err != nil {
+	if err := ic.runScript("delete", ic.data.Compose.Delete, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Terminated AEM instance(s)")
@@ -176,7 +186,7 @@ func (ic *InstanceClient) terminate() error {
 }
 
 func (ic *InstanceClient) deleteDataDir() error {
-	if _, err := ic.cl.RunShellPurely(fmt.Sprintf("rm -fr %s", ic.dataDir())); err != nil {
+	if err := ic.cl.PathDelete(ic.dataDir()); err != nil {
 		return fmt.Errorf("cannot delete AEM data directory: %w", err)
 	}
 	return nil
@@ -209,21 +219,12 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".", true)
+	return ic.doActionOnce("bootstrap", ic.cl.WorkDir, func() error {
+		return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".")
+	})
 }
 
-func (ic *InstanceClient) runScript(name string, script InstanceScript, dir string, once bool) error {
-	if once {
-		exists, err := ic.cl.FileExists(ic.lockFile(name))
-		if err != nil {
-			return fmt.Errorf("cannot check if instance script '%s' was locked (already run): %w", name, err)
-		}
-		if exists {
-			tflog.Info(ic.ctx, fmt.Sprintf("Skipping instance script '%s' (already run)", name))
-			return nil
-		}
-	}
-
+func (ic *InstanceClient) runScript(name string, script InstanceScript, dir string) error {
 	scriptCmd := script.Script.ValueString()
 	inlineCmds := []string{}
 	diags := script.Inline.ElementsAs(ic.ctx, &inlineCmds, true)
@@ -232,33 +233,60 @@ func (ic *InstanceClient) runScript(name string, script InstanceScript, dir stri
 	}
 
 	if scriptCmd != "" {
-		tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
-		textOut, err := ic.cl.RunShellScript(name, scriptCmd, dir)
-		if err != nil {
-			return fmt.Errorf("unable to execute script '%s' properly: %w", name, err)
+		if err := ic.runScriptMultiline(name, scriptCmd, dir); err != nil {
+			return err
 		}
-		textStr := string(textOut)
-		tflog.Info(ic.ctx, fmt.Sprintf("Executed instance script '%s'", name))
-		tflog.Info(ic.ctx, textStr)
 	}
 	if len(inlineCmds) > 0 {
-		for i, cmd := range inlineCmds {
-			tflog.Info(ic.ctx, fmt.Sprintf("Executing command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
-			textOut, err := ic.cl.RunShellScript(name, cmd, dir)
-			if err != nil {
-				return fmt.Errorf("unable to execute command '%s' of script '%s' properly: %w", cmd, name, err)
-			}
-			textStr := string(textOut)
-			tflog.Info(ic.ctx, fmt.Sprintf("Executed command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
-			tflog.Info(ic.ctx, textStr)
+		if err := ic.runScriptInline(name, inlineCmds, dir); err != nil {
+			return err
 		}
 	}
 
-	if once {
-		if err := ic.cl.FileWrite(ic.lockFile(name), time.Now().String()); err != nil {
-			return fmt.Errorf("unable to write instance script lock file '%s': %w", ic.lockFile(name), err)
-		}
-	}
+	return nil
+}
 
+func (ic *InstanceClient) runScriptInline(name string, inlineCmds []string, dir string) error {
+	for i, cmd := range inlineCmds {
+		tflog.Info(ic.ctx, fmt.Sprintf("Executing command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
+		textOut, err := ic.cl.RunShellScript(name, cmd, dir)
+		if err != nil {
+			return fmt.Errorf("unable to execute command '%s' of script '%s' properly: %w", cmd, name, err)
+		}
+		textStr := string(textOut)
+		tflog.Info(ic.ctx, fmt.Sprintf("Executed command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
+		tflog.Info(ic.ctx, textStr)
+	}
+	return nil
+}
+
+func (ic *InstanceClient) runScriptMultiline(name string, scriptCmd string, dir string) error {
+	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
+	textOut, err := ic.cl.RunShellScript(name, scriptCmd, dir)
+	if err != nil {
+		return fmt.Errorf("unable to execute script '%s' properly: %w", name, err)
+	}
+	textStr := string(textOut)
+	tflog.Info(ic.ctx, fmt.Sprintf("Executed instance script '%s'", name))
+	tflog.Info(ic.ctx, textStr)
+	return nil
+}
+
+func (ic *InstanceClient) doActionOnce(name string, lockDir string, action func() error) error {
+	lock := fmt.Sprintf("%s/provider/%s.lock", lockDir, name)
+	exists, err := ic.cl.FileExists(lock)
+	if err != nil {
+		return fmt.Errorf("cannot read lock file '%s': %w", lock, err)
+	}
+	if exists {
+		tflog.Info(ic.ctx, fmt.Sprintf("Skipping AEM instance action '%s' (lock file already exists '%s')", name, lock))
+		return nil
+	}
+	if err := action(); err != nil {
+		return err
+	}
+	if err := ic.cl.FileWrite(lock, time.Now().String()); err != nil {
+		return fmt.Errorf("cannot save lock file '%s': %w", lock, err)
+	}
 	return nil
 }

@@ -92,7 +92,7 @@ func (c Client) RunShellScript(cmdName string, cmdScript string, dir string) ([]
 	if err := c.FileWrite(remotePath, cmdScript); err != nil {
 		return nil, fmt.Errorf("cannot write temporary script at remote path '%s': %w", remotePath, err)
 	}
-	defer func() { _ = c.FileDelete(remotePath) }()
+	defer func() { _ = c.PathDelete(remotePath) }()
 	return c.RunShellCommand(fmt.Sprintf("sh %s", remotePath), dir)
 }
 
@@ -190,13 +190,6 @@ func (c Client) DirCopy(localPath string, remotePath string, override bool) erro
 	return nil
 }
 
-func (c Client) FileDelete(path string) error {
-	if _, err := c.RunShellPurely(fmt.Sprintf("rm -rf %s", path)); err != nil {
-		return fmt.Errorf("cannot delete file '%s': %w", path, err)
-	}
-	return nil
-}
-
 func (c Client) FileCopy(localPath string, remotePath string, override bool) error {
 	if !override {
 		exists, err := c.FileExists(remotePath)
@@ -216,11 +209,11 @@ func (c Client) FileCopy(localPath string, remotePath string, override bool) err
 	} else {
 		remoteTmpPath = fmt.Sprintf("%s.tmp", remotePath)
 	}
-	err := c.FileDelete(remoteTmpPath)
+	err := c.PathDelete(remoteTmpPath)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = c.FileDelete(remoteTmpPath) }()
+	defer func() { _ = c.PathDelete(remoteTmpPath) }()
 	if err := c.connection.CopyFile(localPath, remoteTmpPath); err != nil {
 		return err
 	}
@@ -239,6 +232,13 @@ func (c Client) PathCopy(localPath string, remotePath string, override bool) err
 		return c.DirCopy(localPath, remotePath, override)
 	}
 	return c.FileCopy(localPath, remotePath, override)
+}
+
+func (c Client) PathDelete(path string) error {
+	if _, err := c.RunShellPurely(fmt.Sprintf("rm -rf %s", path)); err != nil {
+		return fmt.Errorf("cannot delete file '%s': %w", path, err)
+	}
+	return nil
 }
 
 func (c Client) FileWrite(remotePath string, text string) error {
