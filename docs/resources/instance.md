@@ -18,7 +18,7 @@ AEM Instance resource
 ### Optional
 
 - `client` (Block, Optional) (see [below for nested schema](#nestedblock--client))
-- `compose` (Block, Optional) (see [below for nested schema](#nestedblock--compose))
+- `compose` (Block, Optional) AEM Compose CLI configuration (see [below for nested schema](#nestedblock--compose))
 - `files` (Map of String) Files or directories to be copied into the machine
 - `system` (Block, Optional) (see [below for nested schema](#nestedblock--system))
 
@@ -44,12 +44,39 @@ Optional:
 
 Optional:
 
-- `config` (String) Contents of the AEM Compose YML configuration file.
-- `create_script` (String) Creates the instance or restores from backup. Forces instance recreation if changed.
-- `delete_script` (String) Deletes the instance.
+- `config` (String) Contents o f the AEM Compose YML configuration file.
+- `create` (Attributes) Creates the instance or restores from backup, typically customized to provide AEM library files (quickstart.jar, license.properties, service packs) from alternative sources (e.g., AWS S3, Azure Blob Storage). Instance recreation is forced if changed. (see [below for nested schema](#nestedatt--compose--create))
+- `delete` (Attributes) Deletes the instance. (see [below for nested schema](#nestedatt--compose--delete))
 - `download` (Boolean) Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory.
-- `launch_script` (String) Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for setting up replication agents, installing service packs, etc.
+- `launch` (Attributes) Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for installing AEM service packs, setting up replication agents, etc. (see [below for nested schema](#nestedatt--compose--launch))
 - `version` (String) Version of AEM Compose tool to use on remote AEM machine.
+
+<a id="nestedatt--compose--create"></a>
+### Nested Schema for `compose.create`
+
+Optional:
+
+- `inline` (List of String) Inline shell commands to be executed
+- `script` (String) Multiline shell script to be executed
+
+
+<a id="nestedatt--compose--delete"></a>
+### Nested Schema for `compose.delete`
+
+Optional:
+
+- `inline` (List of String) Inline shell commands to be executed
+- `script` (String) Multiline shell script to be executed
+
+
+<a id="nestedatt--compose--launch"></a>
+### Nested Schema for `compose.launch`
+
+Optional:
+
+- `inline` (List of String) Inline shell commands to be executed
+- `script` (String) Multiline shell script to be executed
+
 
 
 <a id="nestedblock--system"></a>
@@ -57,12 +84,21 @@ Optional:
 
 Optional:
 
-- `bootstrap_script` (String) Script executed once after connecting to the instance. Typically used for: providing AEM library files (quickstart.jar, license.properties, service packs), mounting data volume, etc. Forces instance recreation if changed.
+- `bootstrap` (Attributes) Script executed once upon instance connection, often for mounting on VM data volumes from attached disks (e.g., AWS EBS, Azure Disk Storage). This script runs only once, even during instance recreation, as changes are typically persistent and system-wide. If re-execution is needed, it is recommended to set up a new VM. (see [below for nested schema](#nestedatt--system--bootstrap))
 - `data_dir` (String) Remote root path in which AEM Compose files and unpacked instances will be stored
 - `env` (Map of String) Environment variables for AEM instances
 - `service_config` (String) Contents of the AEM 'systemd' service definition file
 - `user` (String) System user under which AEM instance will be running. By default, the same as the user used to connect to the machine.
 - `work_dir` (String) Remote root path in which AEM Compose TF provider temporary files will be stored
+
+<a id="nestedatt--system--bootstrap"></a>
+### Nested Schema for `system.bootstrap`
+
+Optional:
+
+- `inline` (List of String) Inline shell commands to be executed
+- `script` (String) Multiline shell script to be executed
+
 
 
 <a id="nestedatt--instances"></a>
