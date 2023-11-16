@@ -6,6 +6,7 @@ import (
 	"github.com/wttech/terraform-provider-aem/internal/utils"
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
+	"time"
 )
 
 const (
@@ -20,6 +21,10 @@ func (ic *InstanceClient) Close() error {
 
 func (ic *InstanceClient) dataDir() string {
 	return ic.data.System.DataDir.ValueString()
+}
+
+func (ic *InstanceClient) lockFile(name string) string {
+	return fmt.Sprintf("%s/provider/%s.lock", ic.dataDir(), name)
 }
 
 func (ic *InstanceClient) prepareWorkDir() error {
@@ -78,7 +83,7 @@ func (ic *InstanceClient) create() error {
 	if err := ic.saveProfileScript(); err != nil {
 		return err
 	}
-	if err := ic.runScript("create", ic.data.Compose.Create, ic.dataDir()); err != nil {
+	if err := ic.runScript("create", ic.data.Compose.Create, ic.dataDir(), true); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Created AEM instance(s)")
@@ -150,7 +155,7 @@ func (ic *InstanceClient) launch() error {
 	if err := ic.runServiceAction("start"); err != nil {
 		return err
 	}
-	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir()); err != nil {
+	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir(), false); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Launched AEM instance(s)")
@@ -163,7 +168,7 @@ func (ic *InstanceClient) terminate() error {
 	if err := ic.runServiceAction("stop"); err != nil {
 		return err
 	}
-	if err := ic.runScript("delete", ic.data.Compose.Delete, ic.dataDir()); err != nil {
+	if err := ic.runScript("delete", ic.data.Compose.Delete, ic.dataDir(), false); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Terminated AEM instance(s)")
@@ -204,10 +209,21 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".")
+	return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".", true)
 }
 
-func (ic *InstanceClient) runScript(name string, script InstanceScript, dir string) error {
+func (ic *InstanceClient) runScript(name string, script InstanceScript, dir string, once bool) error {
+	if once {
+		exists, err := ic.cl.FileExists(ic.lockFile(name))
+		if err != nil {
+			return fmt.Errorf("cannot check if instance script '%s' was locked (already run): %w", name, err)
+		}
+		if exists {
+			tflog.Info(ic.ctx, fmt.Sprintf("Skipping instance script '%s' (already run)", name))
+			return nil
+		}
+	}
+
 	scriptCmd := script.Script.ValueString()
 	inlineCmds := []string{}
 	diags := script.Inline.ElementsAs(ic.ctx, &inlineCmds, true)
@@ -237,5 +253,12 @@ func (ic *InstanceClient) runScript(name string, script InstanceScript, dir stri
 			tflog.Info(ic.ctx, textStr)
 		}
 	}
+
+	if once {
+		if err := ic.cl.FileWrite(ic.lockFile(name), time.Now().String()); err != nil {
+			return fmt.Errorf("unable to write instance script lock file '%s': %w", ic.lockFile(name), err)
+		}
+	}
+
 	return nil
 }
