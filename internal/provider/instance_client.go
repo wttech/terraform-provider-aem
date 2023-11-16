@@ -6,6 +6,7 @@ import (
 	"github.com/wttech/terraform-provider-aem/internal/utils"
 	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
+	"time"
 )
 
 const (
@@ -41,7 +42,7 @@ func (ic *InstanceClient) installComposeCLI() error {
 	}
 	if !exists {
 		tflog.Info(ic.ctx, "Downloading AEM Compose CLI wrapper")
-		out, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.dataDir()))
+		out, err := ic.cl.RunShellCommand("curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.dataDir())
 		tflog.Info(ic.ctx, string(out))
 		if err != nil {
 			return fmt.Errorf("cannot download AEM Compose CLI wrapper: %w", err)
@@ -78,7 +79,7 @@ func (ic *InstanceClient) create() error {
 	if err := ic.saveProfileScript(); err != nil {
 		return err
 	}
-	if err := ic.runScript("create", ic.data.Compose.CreateScript.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("create", ic.data.Compose.Create, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Created AEM instance(s)")
@@ -136,7 +137,7 @@ func (ic *InstanceClient) runServiceAction(action string) error {
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()
 
-	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ServiceName))
+	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ServiceName), ".")
 	if err != nil {
 		return fmt.Errorf("unable to perform AEM system service action '%s': %w", action, err)
 	}
@@ -150,20 +151,34 @@ func (ic *InstanceClient) launch() error {
 	if err := ic.runServiceAction("start"); err != nil {
 		return err
 	}
-	if err := ic.runScript("launch", ic.data.Compose.LaunchScript.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.applyConfig(); err != nil {
+		return err
+	}
+	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Launched AEM instance(s)")
 	return nil
 }
 
-// TODO consider using "delete --kill".
+func (ic *InstanceClient) applyConfig() error {
+	tflog.Info(ic.ctx, "Applying AEM instance configuration")
+	outBytes, err := ic.cl.RunShellCommand("sh aemw instance launch", ic.dataDir())
+	if err != nil {
+		return fmt.Errorf("unable to apply AEM instance configuration: %w", err)
+	}
+	outText := string(outBytes)
+	tflog.Info(ic.ctx, outText)
+	tflog.Info(ic.ctx, "Applied AEM instance configuration")
+	return nil
+}
+
 func (ic *InstanceClient) terminate() error {
 	tflog.Info(ic.ctx, "Terminating AEM instance(s)")
 	if err := ic.runServiceAction("stop"); err != nil {
 		return err
 	}
-	if err := ic.runScript("delete", ic.data.Compose.DeleteScript.ValueString(), ic.dataDir()); err != nil {
+	if err := ic.runScript("delete", ic.data.Compose.Delete, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Terminated AEM instance(s)")
@@ -171,7 +186,7 @@ func (ic *InstanceClient) terminate() error {
 }
 
 func (ic *InstanceClient) deleteDataDir() error {
-	if _, err := ic.cl.RunShellPurely(fmt.Sprintf("rm -fr %s", ic.dataDir())); err != nil {
+	if err := ic.cl.PathDelete(ic.dataDir()); err != nil {
 		return fmt.Errorf("cannot delete AEM data directory: %w", err)
 	}
 	return nil
@@ -193,7 +208,7 @@ type InstanceStatus struct {
 
 func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 	var status InstanceStatus
-	yamlBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("cd %s && sh aemw instance status --output-format yaml", ic.dataDir()))
+	yamlBytes, err := ic.cl.RunShellCommand("sh aemw instance status --output-format yaml", ic.dataDir())
 	if err != nil {
 		return status, err
 	}
@@ -204,24 +219,74 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 }
 
 func (ic *InstanceClient) bootstrap() error {
-	return ic.runScript("bootstrap", ic.data.System.BootstrapScript.ValueString(), ".")
+	return ic.doActionOnce("bootstrap", ic.cl.WorkDir, func() error {
+		return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".")
+	})
 }
 
-func (ic *InstanceClient) runScript(name, cmdScript, dir string) error {
-	if cmdScript == "" {
-		return nil
+func (ic *InstanceClient) runScript(name string, script InstanceScript, dir string) error {
+	scriptCmd := script.Script.ValueString()
+	inlineCmds := []string{}
+	diags := script.Inline.ElementsAs(ic.ctx, &inlineCmds, true)
+	if diags.HasError() {
+		return fmt.Errorf("unable to parse script '%s' properly: %s", name, diags)
 	}
 
-	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
+	if scriptCmd != "" {
+		if err := ic.runScriptMultiline(name, scriptCmd, dir); err != nil {
+			return err
+		}
+	}
+	if len(inlineCmds) > 0 {
+		if err := ic.runScriptInline(name, inlineCmds, dir); err != nil {
+			return err
+		}
+	}
 
-	textOut, err := ic.cl.RunShellScript(name, cmdScript, dir)
+	return nil
+}
+
+func (ic *InstanceClient) runScriptInline(name string, inlineCmds []string, dir string) error {
+	for i, cmd := range inlineCmds {
+		tflog.Info(ic.ctx, fmt.Sprintf("Executing command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
+		textOut, err := ic.cl.RunShellScript(name, cmd, dir)
+		if err != nil {
+			return fmt.Errorf("unable to execute command '%s' of script '%s' properly: %w", cmd, name, err)
+		}
+		textStr := string(textOut)
+		tflog.Info(ic.ctx, fmt.Sprintf("Executed command '%s' of script '%s' (%d/%d)", cmd, name, i+1, len(inlineCmds)))
+		tflog.Info(ic.ctx, textStr)
+	}
+	return nil
+}
+
+func (ic *InstanceClient) runScriptMultiline(name string, scriptCmd string, dir string) error {
+	tflog.Info(ic.ctx, fmt.Sprintf("Executing instance script '%s'", name))
+	textOut, err := ic.cl.RunShellScript(name, scriptCmd, dir)
 	if err != nil {
 		return fmt.Errorf("unable to execute script '%s' properly: %w", name, err)
 	}
-	textStr := string(textOut) // TODO how about streaming it line by line to tflog ;)
-
+	textStr := string(textOut)
 	tflog.Info(ic.ctx, fmt.Sprintf("Executed instance script '%s'", name))
 	tflog.Info(ic.ctx, textStr)
+	return nil
+}
 
+func (ic *InstanceClient) doActionOnce(name string, lockDir string, action func() error) error {
+	lock := fmt.Sprintf("%s/provider/%s.lock", lockDir, name)
+	exists, err := ic.cl.FileExists(lock)
+	if err != nil {
+		return fmt.Errorf("cannot read lock file '%s': %w", lock, err)
+	}
+	if exists {
+		tflog.Info(ic.ctx, fmt.Sprintf("Skipping AEM instance action '%s' (lock file already exists '%s')", name, lock))
+		return nil
+	}
+	if err := action(); err != nil {
+		return err
+	}
+	if err := ic.cl.FileWrite(lock, time.Now().String()); err != nil {
+		return fmt.Errorf("cannot save lock file '%s': %w", lock, err)
+	}
 	return nil
 }
