@@ -38,7 +38,10 @@ resource "aem_instance" "single" {
       SHELL
     }
   }
-  compose {}
+
+  compose {
+    download = true
+  }
 }
 
 locals {

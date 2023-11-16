@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/defaults"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapdefault"
@@ -193,9 +192,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				Attributes: map[string]schema.Attribute{
 					"download": schema.BoolAttribute{
 						MarkdownDescription: "Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory.",
-						Computed:            true,
-						Optional:            true,
-						Default:             booldefault.StaticBool(true),
+						Required:            true,
 					},
 					"version": schema.StringAttribute{
 						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine.",
@@ -204,7 +201,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString("1.5.8"),
 					},
 					"config": schema.StringAttribute{
-						MarkdownDescription: "Contents of the AEM Compose YML configuration file.",
+						MarkdownDescription: "Contents o f the AEM Compose YML configuration file.",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString(instance.ConfigYML),
