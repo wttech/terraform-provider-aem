@@ -51,7 +51,10 @@ func (p *AEMProvider) Configure(ctx context.Context, req provider.ConfigureReque
 }
 
 func (p *AEMProvider) Resources(ctx context.Context) []func() resource.Resource {
-	return []func() resource.Resource{NewInstanceResource}
+	return []func() resource.Resource{
+		NewInstanceResource,
+		NewPackageResource,
+	}
 }
 
 func (p *AEMProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
