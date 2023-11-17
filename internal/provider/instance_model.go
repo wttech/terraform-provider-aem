@@ -153,7 +153,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Remote root path where provider-related files will be stored.",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("/var/aemc"),
+						Default:             stringdefault.StaticString("/tmp/aemc"),
 					},
 					"service_config": schema.StringAttribute{
 						MarkdownDescription: "Contents of the AEM system service definition file (systemd).",
