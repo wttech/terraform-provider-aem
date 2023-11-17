@@ -1,0 +1,19 @@
+---
+page_title: "{{.ProviderShortName | upper }} Provider"
+subcategory: ""
+---
+
+[![AEM Compose Logo](https://github.com/wttech/aemc/raw/main/docs/logo-with-text.png)](https://github.com/wttech/aemc)
+[![WTT Logo](https://github.com/wttech/aemc/raw/main/docs/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
+
+# {{.ProviderShortName | upper}} Provider
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{ printf "{{tffile %q}}" .ExampleFile }}
+{{- end }}
+
+{{/* .SchemaMarkdown | trimspace */}}

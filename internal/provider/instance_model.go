@@ -102,7 +102,7 @@ func (o InstanceStatusItemModel) attrTypes() map[string]attr.Type {
 
 func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "AEM Instance resource",
+		MarkdownDescription: instance.DescriptionMD,
 		Blocks: map[string]schema.Block{
 			"client": schema.SingleNestedBlock{
 				MarkdownDescription: "Connection settings used to access the machine on which the AEM instance will be running.",

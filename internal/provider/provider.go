@@ -27,13 +27,14 @@ type AEMProvider struct {
 type AEMProviderModel struct{}
 
 func (p *AEMProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "AEM"
+	resp.TypeName = "aem"
 	resp.Version = p.version
 }
 
 func (p *AEMProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: DescriptionMD,
+		Attributes:          map[string]schema.Attribute{},
 	}
 }
 

@@ -1,0 +1,27 @@
+---
+page_title: "{{.ProviderShortName | upper }} Provider - {{.Type}} '{{.Name}}'"
+subcategory: ""
+---
+
+[![AEM Compose Logo](https://github.com/wttech/aemc/raw/main/docs/logo-with-text.png)](https://github.com/wttech/aemc)
+[![WTT Logo](https://github.com/wttech/aemc/raw/main/docs/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
+
+# {{.ProviderShortName | upper}} Provider - {{.Type}} '{{.Name}}'
+
+{{ .Description | trimspace }}
+
+{{ if .HasExample -}}
+## Example Usage
+
+{{ printf "{{tffile %q}}" .ExampleFile }}
+{{- end }}
+
+{{ .SchemaMarkdown | trimspace }}
+{{- if .HasImport }}
+
+## Import
+
+Import is supported using the following syntax:
+
+{{ printf "{{codefile \"shell\" %q}}" .ImportFile }}
+{{- end }}

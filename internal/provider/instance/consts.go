@@ -2,6 +2,9 @@ package instance
 
 import _ "embed"
 
+//go:embed description.md
+var DescriptionMD string
+
 //go:embed aem.yml
 var ConfigYML string
 

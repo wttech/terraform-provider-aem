@@ -1,7 +1,8 @@
 terraform {
   required_providers {
     aem = {
-      source = "registry.terraform.io/wttech/aem"
+      source  = "registry.terraform.io/wttech/aem"
+      version = "< 2.0.0"
     }
     aws = {
       source  = "hashicorp/aws"
