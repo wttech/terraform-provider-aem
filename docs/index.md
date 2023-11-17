@@ -8,7 +8,7 @@ subcategory: ""
 
 # AEM Provider
 
-This provider allows developers and development teams to easily set up [Adobe Experience Manager (AEM)](https://business.adobe.com/products/experience-manager/adobe-experience-manager.html) instances on virtual machines in the cloud or bare metal machines. 
+This provider allows development teams to easily set up [Adobe Experience Manager (AEM)](https://business.adobe.com/products/experience-manager/adobe-experience-manager.html) instances on virtual machines in the cloud or bare metal machines. 
 It's based on the [AEM Compose](https://github.com/wttech/aemc) tool and aims to simplify the process of creating AEM environments without requiring deep DevOps knowledge. 
 Only basic AWS, Azure, or any other cloud knowledge about VMs is required.
 
