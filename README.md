@@ -5,9 +5,8 @@
 
 # AEM Compose - Terraform Provider
 
-This provider allows development teams to easily set up [Adobe Experience Manager (AEM)](https://business.adobe.com/products/experience-manager/adobe-experience-manager.html) instances on virtual machines in the cloud or bare metal machines.
+This provider allows development teams to easily set up [Adobe Experience Manager (AEM)](https://business.adobe.com/products/experience-manager/adobe-experience-manager.html) instances on virtual machines in the cloud (AWS, Azure, GCP, etc.) or bare metal machines.
 It's based on the [AEM Compose](https://github.com/wttech/aemc) tool and aims to simplify the process of creating AEM environments without requiring deep DevOps knowledge.
-Only basic AWS, Azure, or any other cloud knowledge about VMs is required.
 
 ## Purpose
 
@@ -81,9 +80,9 @@ Run command: `sh develop.sh <example_path> <tf_args>`.
 
 For example: 
 
-- `sh develop.sh examples/ssh plan`
-- `sh develop.sh examples/ssh apply -auto-approve`
-- `sh develop.sh examples/ssh destroy -auto-approve`
+- `sh develop.sh examples/aws_ssh plan`
+- `sh develop.sh examples/aws_ssh apply -auto-approve`
+- `sh develop.sh examples/aws_ssh destroy -auto-approve`
 
 ## Debugging the Provider
 
