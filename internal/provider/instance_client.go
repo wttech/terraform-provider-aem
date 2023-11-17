@@ -154,7 +154,7 @@ func (ic *InstanceClient) launch() error {
 	if err := ic.applyConfig(); err != nil {
 		return err
 	}
-	if err := ic.runScript("launch", ic.data.Compose.Launch, ic.dataDir()); err != nil {
+	if err := ic.runScript("configure", ic.data.Compose.Configure, ic.dataDir()); err != nil {
 		return err
 	}
 	tflog.Info(ic.ctx, "Launched AEM instance(s)")

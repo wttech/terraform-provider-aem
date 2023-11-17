@@ -2,16 +2,19 @@ package provider
 
 import (
 	"context"
+	_ "embed"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/wttech/terraform-provider-aem/internal/client"
 )
 
 // Ensure AEMProvider satisfies various provider interfaces.
 var _ provider.Provider = &AEMProvider{}
+
+//go:embed description.md
+var DescriptionMD string
 
 // AEMProvider defines the provider implementation.
 type AEMProvider struct {
@@ -21,42 +24,27 @@ type AEMProvider struct {
 	version string
 }
 
-// AEMProviderModel describes the provider data model.
-type AEMProviderModel struct {
-	Endpoint types.String `tfsdk:"endpoint"`
-}
+type AEMProviderModel struct{}
 
 func (p *AEMProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "aem"
+	resp.TypeName = "AEM"
 	resp.Version = p.version
 }
 
 func (p *AEMProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Attributes: map[string]schema.Attribute{
-			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Example provider attribute",
-				Optional:            true,
-			},
-		},
+		MarkdownDescription: DescriptionMD,
 	}
 }
 
 func (p *AEMProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var data AEMProviderModel
-
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
-
-	// Example client configuration for data sources and resources
 	clientManager := client.ClientManagerDefault
-
 	resp.DataSourceData = clientManager
 	resp.ResourceData = clientManager
 }

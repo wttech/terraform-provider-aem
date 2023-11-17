@@ -36,12 +36,12 @@ type InstanceResourceModel struct {
 		Bootstrap     InstanceScript `tfsdk:"bootstrap"`
 	} `tfsdk:"system"`
 	Compose struct {
-		Download types.Bool     `tfsdk:"download"`
-		Version  types.String   `tfsdk:"version"`
-		Config   types.String   `tfsdk:"config"`
-		Create   InstanceScript `tfsdk:"create"`
-		Launch   InstanceScript `tfsdk:"launch"`
-		Delete   InstanceScript `tfsdk:"delete"`
+		Download  types.Bool     `tfsdk:"download"`
+		Version   types.String   `tfsdk:"version"`
+		Config    types.String   `tfsdk:"config"`
+		Create    InstanceScript `tfsdk:"create"`
+		Configure InstanceScript `tfsdk:"configure"`
+		Delete    InstanceScript `tfsdk:"delete"`
 	} `tfsdk:"compose"`
 	Instances types.List `tfsdk:"instances"`
 }
@@ -105,9 +105,10 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 		MarkdownDescription: "AEM Instance resource",
 		Blocks: map[string]schema.Block{
 			"client": schema.SingleNestedBlock{
+				MarkdownDescription: "Connection settings used to access the machine on which the AEM instance will be running.",
 				Attributes: map[string]schema.Attribute{
 					"type": schema.StringAttribute{
-						MarkdownDescription: "Type of connection to use to connect to the machine on which AEM instance will be running",
+						MarkdownDescription: "Type of connection to use to connect to the machine on which AEM instance will be running.",
 						Required:            true,
 					},
 					"settings": schema.MapAttribute{
@@ -124,9 +125,10 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"system": schema.SingleNestedBlock{
+				MarkdownDescription: "Operating system configuration for the machine on which AEM instance will be running.",
 				Attributes: map[string]schema.Attribute{
 					"bootstrap": schema.SingleNestedAttribute{
-						MarkdownDescription: "Script executed once upon instance connection, often for mounting on VM data volumes from attached disks (e.g., AWS EBS, Azure Disk Storage). This script runs only once, even during instance recreation, as changes are typically persistent and system-wide. If re-execution is needed, it is recommended to set up a new VM.",
+						MarkdownDescription: "Script executed once upon instance connection, often for mounting on VM data volumes from attached disks (e.g., AWS EBS, Azure Disk Storage). This script runs only once, even during instance recreation, as changes are typically persistent and system-wide. If re-execution is needed, it is recommended to set up a new machine.",
 						Optional:            true,
 						Attributes: map[string]schema.Attribute{
 							"inline": schema.ListAttribute{
@@ -141,20 +143,20 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						},
 					},
 					"data_dir": schema.StringAttribute{
-						MarkdownDescription: "Remote root path in which AEM Compose files and unpacked instances will be stored",
+						MarkdownDescription: "Remote root path in which AEM Compose files and unpacked AEM instances will be stored.",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("/mnt/aemc"),
 						PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 					},
 					"work_dir": schema.StringAttribute{
-						MarkdownDescription: "Remote root path in which AEM Compose TF provider temporary files will be stored",
+						MarkdownDescription: "Remote root path where provider-related files will be stored.",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("/tmp/aemc"),
+						Default:             stringdefault.StaticString("/var/aemc"),
 					},
 					"service_config": schema.StringAttribute{
-						MarkdownDescription: "Contents of the AEM 'systemd' service definition file",
+						MarkdownDescription: "Contents of the AEM system service definition file (systemd).",
 						Optional:            true,
 						Computed:            true,
 						Default:             stringdefault.StaticString(instance.ServiceConf),
@@ -167,7 +169,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString(""),
 					},
 					"env": schema.MapAttribute{
-						MarkdownDescription: "Environment variables for AEM instances",
+						MarkdownDescription: "Environment variables for AEM instances.",
 						ElementType:         types.StringType,
 						Computed:            true,
 						Optional:            true,
@@ -176,7 +178,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 				},
 			},
 			"compose": schema.SingleNestedBlock{
-				MarkdownDescription: "AEM Compose CLI configuration",
+				MarkdownDescription: "AEM Compose CLI configuration. See [documentation](https://github.com/wttech/aemc#configuration).",
 				Attributes: map[string]schema.Attribute{
 					"download": schema.BoolAttribute{
 						MarkdownDescription: "Toggle automatic AEM Compose CLI wrapper download. If set to false, assume the wrapper is present in the data directory.",
@@ -185,7 +187,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             booldefault.StaticBool(true),
 					},
 					"version": schema.StringAttribute{
-						MarkdownDescription: "Version of AEM Compose tool to use on remote AEM machine.",
+						MarkdownDescription: "Version of AEM Compose tool to use on remote machine.",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("1.5.9"),
@@ -197,7 +199,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString(instance.ConfigYML),
 					},
 					"create": schema.SingleNestedAttribute{
-						MarkdownDescription: "Creates the instance or restores from backup, typically customized to provide AEM library files (quickstart.jar, license.properties, service packs) from alternative sources (e.g., AWS S3, Azure Blob Storage). Instance recreation is forced if changed.",
+						MarkdownDescription: "Script(s) for creating an instance or restoring it from a backup. Typically customized to provide AEM library files (quickstart.jar, license.properties, service packs) from alternative sources (e.g., AWS S3, Azure Blob Storage). Instance recreation is forced if changed.",
 						Optional:            true,
 						Computed:            true,
 						Default:             instanceScriptSchemaDefault(instance.CreateScriptInline, nil),
@@ -217,8 +219,8 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 							},
 						},
 					},
-					"launch": schema.SingleNestedAttribute{
-						MarkdownDescription: "Configures launched instance. Must be idempotent as it is executed always when changed. Typically used for installing AEM service packs, setting up replication agents, etc.",
+					"configure": schema.SingleNestedAttribute{
+						MarkdownDescription: "Script(s) for configuring a launched instance. Must be idempotent as it is executed always when changed. Typically used for installing AEM service packs, setting up replication agents, etc.",
 						Optional:            true,
 						Computed:            true,
 						Default:             instanceScriptSchemaDefault(instance.LaunchScriptInline, nil),
@@ -237,7 +239,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						},
 					},
 					"delete": schema.SingleNestedAttribute{
-						MarkdownDescription: "Deletes the instance.",
+						MarkdownDescription: "Script(s) for deleting a stopped instance.",
 						Optional:            true,
 						Computed:            true,
 						Default:             instanceScriptSchemaDefault(instance.DeleteScriptInline, nil),
@@ -261,35 +263,42 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 
 		Attributes: map[string]schema.Attribute{
 			"files": schema.MapAttribute{
-				MarkdownDescription: "Files or directories to be copied into the machine",
+				MarkdownDescription: "Files or directories to be copied into the machine.",
 				ElementType:         types.StringType,
 				Computed:            true,
 				Optional:            true,
 				Default:             mapdefault.StaticValue(types.MapValueMust(types.StringType, map[string]attr.Value{})),
 			},
 			"instances": schema.ListNestedAttribute{
-				Computed: true,
+				MarkdownDescription: "Current state of the configured AEM instances.",
+				Computed:            true,
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
 						"id": schema.StringAttribute{
-							Computed: true,
+							MarkdownDescription: "Unique identifier of AEM instance defined in the configuration.",
+							Computed:            true,
 						},
 						"url": schema.StringAttribute{
-							Computed: true,
+							MarkdownDescription: "The machine-internal HTTP URL address used for communication with the AEM instance.",
+							Computed:            true,
 						},
 						"aem_version": schema.StringAttribute{
-							Computed: true,
+							MarkdownDescription: "Version of the AEM instance. Reflects service pack installations.",
+							Computed:            true,
 						},
 						"attributes": schema.ListAttribute{
-							ElementType: types.StringType,
-							Computed:    true,
+							MarkdownDescription: "A brief description of the state details for a specific AEM instance. Possible states include 'created', 'uncreated', 'running', 'unreachable', 'up-to-date', and 'out-of-date'.",
+							ElementType:         types.StringType,
+							Computed:            true,
 						},
 						"run_modes": schema.ListAttribute{
-							ElementType: types.StringType,
-							Computed:    true,
+							MarkdownDescription: "A list of run modes for a specific AEM instance.",
+							ElementType:         types.StringType,
+							Computed:            true,
 						},
 						"dir": schema.StringAttribute{
-							Computed: true,
+							MarkdownDescription: "Remote path in which AEM instance is stored.",
+							Computed:            true,
 						},
 					},
 				},
