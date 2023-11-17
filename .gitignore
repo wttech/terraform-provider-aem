@@ -42,4 +42,6 @@ dev_overrides.tfrc
 *.cer
 *.der
 
-**/aem/home/
+# Terraform examples
+examples/**/.terraform.lock.hcl
+examples/**/lib/

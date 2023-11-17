@@ -34,6 +34,7 @@ resource "aem_instance" "single" {
   }
 
   compose {
+    config = file("aem.yml") // use templating here if needed: https://developer.hashicorp.com/terraform/language/functions/templatefile
     create = {
       inline = [
         "mkdir -p '${local.aem_single_compose_dir}/aem/home/lib'",

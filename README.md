@@ -26,7 +26,6 @@ The main purpose of this provider is to enable users to:
 - Seamless integration with Terraform for infrastructure provisioning
 - Based on the powerful [AEM Compose](https://github.com/wttech/aemc) tool
 
-
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
@@ -56,9 +55,9 @@ go mod tidy
 
 Then commit the changes to `go.mod` and `go.sum`.
 
-## Using the provider
+## Troubleshooting the provider
 
-Fill this in for each provider
+Before running any Terraform command simply set the environment variable `TF_LOG=INFO` (or ultimately `TF_LOG=DEBUG`) to see detailed logs about progress of the setting up the AEM instances.
 
 ## Developing the Provider
 
