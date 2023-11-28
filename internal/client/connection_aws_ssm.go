@@ -1,38 +1,40 @@
 package client
 
-import "github.com/melbahja/goph"
+import (
+	"fmt"
+	"github.com/melbahja/goph"
+)
 
 type AWSSSMConnection struct {
-	InstanceID string
-	Region     string
+	instanceId string
+	region     string
 }
 
-func (A AWSSSMConnection) Info() string {
+func (a *AWSSSMConnection) Info() string {
+	return fmt.Sprintf("ssm: instance='%s', region='%s'", a.instanceId, a.region)
+}
+
+func (a *AWSSSMConnection) User() string {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (A AWSSSMConnection) User() string {
+func (a *AWSSSMConnection) Connect() error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (A AWSSSMConnection) Connect() error {
+func (a *AWSSSMConnection) Disconnect() error {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (A AWSSSMConnection) Disconnect() error {
+func (a *AWSSSMConnection) Command(cmdLine []string) (*goph.Cmd, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (A AWSSSMConnection) Command(cmdLine []string) (*goph.Cmd, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (A AWSSSMConnection) CopyFile(localPath string, remotePath string) error {
+func (a *AWSSSMConnection) CopyFile(localPath string, remotePath string) error {
 	//TODO implement me
 	panic("implement me")
 }
