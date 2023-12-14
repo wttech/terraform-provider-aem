@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/melbahja/goph"
 	"github.com/wttech/terraform-provider-aem/internal/utils"
 	"os"
 	"path/filepath"
@@ -68,7 +67,7 @@ func (c Client) Connection() Connection {
 	return c.connection
 }
 
-func (c Client) Command(cmdLine []string) (*goph.Cmd, error) {
+func (c Client) Command(cmdLine []string) ([]byte, error) {
 	return c.connection.Command(cmdLine)
 }
 
@@ -110,16 +109,9 @@ func (c Client) RunShellPurely(cmd string) ([]byte, error) {
 	} else {
 		cmdLine = []string{"sh", "-c", "\"" + cmd + "\""}
 	}
-	cmdObj, err := c.connection.Command(cmdLine)
+	out, err := c.connection.Command(cmdLine)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create command '%s': %w", cmd, err)
-	}
-	out, err := cmdObj.CombinedOutput()
-	if err != nil {
-		if len(out) > 0 {
-			return nil, fmt.Errorf("cannot run command '%s': %w\n\n%s", cmdObj, err, string(out))
-		}
-		return nil, err
 	}
 	return out, nil
 }

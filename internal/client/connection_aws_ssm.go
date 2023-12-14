@@ -1,11 +1,11 @@
 package client
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/melbahja/goph"
 	"os"
 	"strings"
 )
@@ -64,13 +64,13 @@ func (a *AWSSSMConnection) Disconnect() error {
 	return nil
 }
 
-func (a *AWSSSMConnection) Command(cmdLine []string) (*goph.Cmd, error) {
+func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	// Execute command on the remote instance
 	runCommandInput := &ssm.SendCommandInput{
 		DocumentName: aws.String("AWS-RunShellScript"),
 		InstanceIds:  []*string{aws.String(a.instanceId)},
 		Parameters: map[string][]*string{
-			"commands": aws.StringSlice(cmdLine),
+			"commands": {aws.String(strings.Join(cmdLine, " "))},
 		},
 	}
 
@@ -98,39 +98,17 @@ func (a *AWSSSMConnection) Command(cmdLine []string) (*goph.Cmd, error) {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
 
-	// Transform the SSM command output into a goph.Cmd structure
-	parts := strings.Fields(*getCommandOutput.StandardOutputContent)
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("ssm: unexpected command output format")
-	}
-
-	gophCommand := goph.Cmd{
-		Path: parts[0],
-		Args: parts[1:],
-		Env:  os.Environ(),
-	}
-
-	return &gophCommand, nil
+	return []byte(*getCommandOutput.StandardOutputContent), nil
 }
 
 func (a *AWSSSMConnection) CopyFile(localPath string, remotePath string) error {
-	// Upload file to the remote instance using SSM Parameter Store
 	fileContent, err := os.ReadFile(localPath)
 	if err != nil {
 		return fmt.Errorf("ssm: error reading local file: %v", err)
 	}
+	encodedContent := base64.StdEncoding.EncodeToString(fileContent)
 
-	putParameterInput := &ssm.PutParameterInput{
-		Name:      aws.String(remotePath),
-		Value:     aws.String(string(fileContent)),
-		Type:      aws.String("SecureString"),
-		Overwrite: aws.Bool(true),
-	}
-
-	_, err = a.ssmClient.PutParameter(putParameterInput)
-	if err != nil {
-		return fmt.Errorf("ssm: error uploading file to the instance: %v", err)
-	}
-
-	return nil
+	command := fmt.Sprintf("echo -n %s | base64 -d > %s", encodedContent, remotePath)
+	_, err = a.Command(strings.Split(command, " "))
+	return err
 }

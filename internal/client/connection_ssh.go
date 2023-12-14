@@ -87,13 +87,20 @@ func (s *SSHConnection) Disconnect() error {
 	return nil
 }
 
-func (s *SSHConnection) Command(cmdLine []string) (*goph.Cmd, error) {
+func (s *SSHConnection) Command(cmdLine []string) ([]byte, error) {
 	name, args := s.splitCommandLine(cmdLine)
 	cmd, err := s.client.Command(name, args...)
 	if err != nil {
 		return nil, fmt.Errorf("ssh: cannot create command '%s' for host '%s': %w", strings.Join(cmdLine, " "), s.host, err)
 	}
-	return cmd, nil
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if len(out) > 0 {
+			return nil, fmt.Errorf("ssh: cannot run command '%s': %w\n\n%s", cmd, err, string(out))
+		}
+		return nil, err
+	}
+	return out, nil
 }
 
 func (s *SSHConnection) splitCommandLine(cmdLine []string) (string, []string) {
