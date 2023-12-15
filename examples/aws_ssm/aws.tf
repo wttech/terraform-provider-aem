@@ -25,7 +25,7 @@ resource "aws_iam_instance_profile" "aem_ec2" {
 }
 
 resource "aws_iam_role" "aem_ec2" {
-  name               = "${local.workspace}_aem_ec2"
+  name = "${local.workspace}_aem_ec2"
   assume_role_policy = trimspace(<<EOF
   {
     "Version": "2012-10-17",
@@ -37,7 +37,7 @@ resource "aws_iam_role" "aem_ec2" {
   }
   EOF
   )
-  tags               = local.tags
+  tags = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {
