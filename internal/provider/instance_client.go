@@ -42,7 +42,7 @@ func (ic *InstanceClient) installComposeCLI() error {
 	}
 	if !exists {
 		tflog.Info(ic.ctx, "Downloading AEM Compose CLI wrapper")
-		out, err := ic.cl.RunShellCommand("curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw'", ic.dataDir())
+		out, err := ic.cl.RunShellCommand("curl -s 'https://raw.githubusercontent.com/wttech/aemc/main/pkg/project/common/aemw' -o 'aemw' && chmod +x 'aemw'", ic.dataDir())
 		tflog.Info(ic.ctx, string(out))
 		if err != nil {
 			return fmt.Errorf("cannot download AEM Compose CLI wrapper: %w", err)
@@ -125,6 +125,9 @@ func (ic *InstanceClient) configureService() error {
 	serviceFile := fmt.Sprintf("/etc/systemd/system/%s.service", ServiceName)
 	if err := ic.cl.FileWrite(serviceFile, serviceTemplated); err != nil {
 		return fmt.Errorf("unable to write AEM system service definition '%s': %w", serviceFile, err)
+	}
+	if err := ic.cl.FileMakeExecutable(serviceFile); err != nil {
+		return fmt.Errorf("unable to make executable AEM system service definition '%s': %w", serviceFile, err)
 	}
 
 	if err := ic.runServiceAction("enable"); err != nil {

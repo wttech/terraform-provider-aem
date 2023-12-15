@@ -66,11 +66,12 @@ func (a *AWSSSMConnection) Disconnect() error {
 
 func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	// Execute command on the remote instance
+	command := aws.String(strings.Join(cmdLine, " "))
 	runCommandInput := &ssm.SendCommandInput{
 		DocumentName: aws.String("AWS-RunShellScript"),
 		InstanceIds:  []*string{aws.String(a.instanceId)},
 		Parameters: map[string][]*string{
-			"commands": {aws.String(strings.Join(cmdLine, " "))},
+			"commands": {command},
 		},
 	}
 
