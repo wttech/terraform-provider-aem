@@ -11,6 +11,7 @@ import (
 )
 
 type AWSSSMConnection struct {
+	user       string
 	instanceId string
 	region     string
 	ssmClient  *ssm.SSM
@@ -22,7 +23,7 @@ func (a *AWSSSMConnection) Info() string {
 }
 
 func (a *AWSSSMConnection) User() string {
-	return "aem" // does not impact the connection, used as default user for systemd only
+	return a.user
 }
 func (a *AWSSSMConnection) Connect() error {
 	// Create an AWS session

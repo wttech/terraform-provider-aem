@@ -1,5 +1,5 @@
 resource "aws_instance" "aem_single" {
-  ami                  = "ami-064e3c165b1ba0bb3" // Amazon Linux 2 AMI (HVM), SSD Volume Type
+  ami                  = "ami-025a6a5beb74db87b" // Amazon Linux 2023 AMI
   instance_type        = "m5.xlarge"
   iam_instance_profile = aws_iam_instance_profile.aem_ec2.name
   tags                 = local.tags

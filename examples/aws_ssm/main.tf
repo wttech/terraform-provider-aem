@@ -18,7 +18,7 @@ locals {
   env_type  = "aem-single"
   host      = "aem_single"
 
-  ssm_user = "ssm-user"
+  ssm_user = "ec2-user"
 
   tags = {
     Workspace = "aemc"

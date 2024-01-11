@@ -4,6 +4,7 @@ resource "aem_instance" "single" {
   client {
     type = "aws-ssm"
     settings = {
+      user        = local.ssm_user
       instance_id = aws_instance.aem_single.id
       region      = "eu-central-1" // TODO infer from AWS provider config
     }
