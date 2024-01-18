@@ -11,6 +11,7 @@ resource "aem_instance" "single" {
   }
 
   system {
+    service_config = file("systemd.conf")
     data_dir = local.aem_single_compose_dir
     bootstrap = {
       inline = [
@@ -20,6 +21,11 @@ resource "aem_instance" "single" {
         "sudo mount ${local.aem_single_data_device} ${local.aem_single_data_dir}",
         "sudo chown -R ${local.ssm_user} ${local.aem_single_data_dir}",
         "echo '${local.aem_single_data_device} ${local.aem_single_data_dir} ext4 defaults 0 0' | sudo tee -a /etc/fstab",
+        // installing AWS CLI
+        "sudo yum install -y unzip",
+        "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
+        "unzip -q awscliv2.zip",
+        "sudo ./aws/install --update",
       ]
     }
   }

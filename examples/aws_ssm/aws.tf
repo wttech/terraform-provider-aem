@@ -1,8 +1,13 @@
 resource "aws_instance" "aem_single" {
-  ami                  = "ami-025a6a5beb74db87b" // Amazon Linux 2023 AMI
+  ami                  = "ami-043e06a423cbdca17" // RHEL 8
   instance_type        = "m5.xlarge"
   iam_instance_profile = aws_iam_instance_profile.aem_ec2.name
   tags                 = local.tags
+  user_data = trimspace(<<EOF
+#!/bin/bash
+sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+  EOF
+  )
 }
 
 resource "aws_ebs_volume" "aem_single_data" {
