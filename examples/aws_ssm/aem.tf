@@ -11,7 +11,6 @@ resource "aem_instance" "single" {
   }
 
   system {
-    service_config = file("systemd.conf")
     data_dir = local.aem_single_compose_dir
     bootstrap = {
       inline = [
