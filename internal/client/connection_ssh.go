@@ -112,7 +112,7 @@ func (s *SSHConnection) splitCommandLine(cmdLine []string) (string, []string) {
 	return name, args
 }
 
-func (s *SSHConnection) CopyFile(localPath string, remotePath string) error {
+func (s *SSHConnection) CopyFile(sudo bool, localPath string, remotePath string) error {
 	if err := s.client.Upload(localPath, remotePath); err != nil {
 		return fmt.Errorf("ssh: cannot copy local file '%s' to remote path '%s' on host '%s': %w", localPath, remotePath, s.host, err)
 	}

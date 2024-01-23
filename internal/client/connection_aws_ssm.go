@@ -103,14 +103,20 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	return []byte(*getCommandOutput.StandardOutputContent), nil
 }
 
-func (a *AWSSSMConnection) CopyFile(localPath string, remotePath string) error {
+func (a *AWSSSMConnection) CopyFile(sudo bool, localPath string, remotePath string) error {
 	fileContent, err := os.ReadFile(localPath)
 	if err != nil {
 		return fmt.Errorf("ssm: error reading local file: %v", err)
 	}
 	encodedContent := base64.StdEncoding.EncodeToString(fileContent)
 
-	command := fmt.Sprintf("echo -n %s | base64 -d > %s", encodedContent, remotePath)
-	_, err = a.Command(strings.Split(command, " "))
+	cmd := fmt.Sprintf("echo -n %s | base64 -d > %s", encodedContent, remotePath)
+	var cmdLine []string
+	if sudo {
+		cmdLine = []string{"sudo", "sh", "-c", "\"" + cmd + "\""}
+	} else {
+		cmdLine = []string{"sh", "-c", "\"" + cmd + "\""}
+	}
+	_, err = a.Command(cmdLine)
 	return err
 }

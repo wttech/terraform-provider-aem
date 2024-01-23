@@ -220,7 +220,7 @@ func (ic *InstanceClient) ReadStatus() (InstanceStatus, error) {
 
 func (ic *InstanceClient) bootstrap() error {
 	return ic.doActionOnce("bootstrap", ic.cl.WorkDir, func() error {
-		return ic.runScript("bootstrap", ic.data.System.Bootstrap, ".")
+		return ic.runScript("bootstrap", ic.data.System.Bootstrap, ic.cl.WorkDir)
 	})
 }
 
