@@ -40,7 +40,7 @@ func (c ClientManager) connection(typeName string, settings map[string]string) (
 		}, nil
 	case "aws-ssm":
 		return &AWSSSMConnection{
-			InstanceId: settings["instance_id"],
+			InstanceID: settings["instance_id"],
 			Region:     settings["region"],
 		}, nil
 	}

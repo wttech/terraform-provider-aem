@@ -13,14 +13,14 @@ import (
 )
 
 type AWSSSMConnection struct {
-	InstanceId string
+	InstanceID string
 	Region     string
 	Client     *ssm.Client
 	SessionId  *string
 }
 
 func (a *AWSSSMConnection) Info() string {
-	return fmt.Sprintf("ssm: instance='%s', region='%s'", a.InstanceId, a.Region)
+	return fmt.Sprintf("ssm: instance='%s', region='%s'", a.InstanceID, a.Region)
 }
 
 func (a *AWSSSMConnection) User() string {
@@ -41,7 +41,7 @@ func (a *AWSSSMConnection) Connect() error {
 	}
 
 	startSessionInput := &ssm.StartSessionInput{
-		Target: aws.String(a.InstanceId),
+		Target: aws.String(a.InstanceID),
 	}
 
 	startSessionOutput, err := client.StartSession(context.Background(), startSessionInput)
@@ -74,7 +74,7 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	command := strings.Join(cmdLine, " ")
 	runCommandInput := &ssm.SendCommandInput{
 		DocumentName: aws.String("AWS-RunShellScript"),
-		InstanceIds:  []string{a.InstanceId},
+		InstanceIds:  []string{a.InstanceID},
 		Parameters: map[string][]string{
 			"commands": {command},
 		},
@@ -89,7 +89,7 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 
 	commandInvocationInput := &ssm.GetCommandInvocationInput{
 		CommandId:  commandId,
-		InstanceId: aws.String(a.InstanceId),
+		InstanceId: aws.String(a.InstanceID),
 	}
 
 	waiter := ssm.NewCommandExecutedWaiter(a.Client)
