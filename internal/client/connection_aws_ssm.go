@@ -13,7 +13,6 @@ import (
 )
 
 type AWSSSMConnection struct {
-	user       string
 	instanceId string
 	region     string
 	ssmClient  *ssm.Client
@@ -25,7 +24,7 @@ func (a *AWSSSMConnection) Info() string {
 }
 
 func (a *AWSSSMConnection) User() string {
-	return a.user
+	return "root"
 }
 
 func (a *AWSSSMConnection) Connect() error {

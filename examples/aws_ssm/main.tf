@@ -18,8 +18,6 @@ locals {
   env_type  = "aem-single"
   host      = "aem_single"
 
-  ssm_user = "root"
-
   tags = {
     Workspace = "aemc"
     Env       = "tf-minimal"

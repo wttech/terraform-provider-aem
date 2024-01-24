@@ -4,7 +4,6 @@ resource "aem_instance" "single" {
   client {
     type = "aws-ssm"
     settings = {
-      user        = local.ssm_user
       instance_id = aws_instance.aem_single.id
       region      = "eu-central-1" // TODO infer from AWS provider config
     }
@@ -18,9 +17,8 @@ resource "aem_instance" "single" {
         "sudo mkfs -t ext4 ${local.aem_single_data_device}",
         "sudo mkdir -p ${local.aem_single_data_dir}",
         "sudo mount ${local.aem_single_data_device} ${local.aem_single_data_dir}",
-        "sudo chown -R ${local.ssm_user} ${local.aem_single_data_dir}",
         "echo '${local.aem_single_data_device} ${local.aem_single_data_dir} ext4 defaults 0 0' | sudo tee -a /etc/fstab",
-        // installing AWS CLI
+        // installing AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
         "sudo yum install -y unzip",
         "curl 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o 'awscliv2.zip'",
         "unzip -q awscliv2.zip",
