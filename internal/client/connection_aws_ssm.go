@@ -13,14 +13,14 @@ import (
 )
 
 type AWSSSMConnection struct {
-	instanceId string
-	region     string
-	ssmClient  *ssm.Client
-	sessionId  *string
+	InstanceId string
+	Region     string
+	Client     *ssm.Client
+	SessionId  *string
 }
 
 func (a *AWSSSMConnection) Info() string {
-	return fmt.Sprintf("ssm: instance='%s', region='%s'", a.instanceId, a.region)
+	return fmt.Sprintf("ssm: instance='%s', region='%s'", a.InstanceId, a.Region)
 }
 
 func (a *AWSSSMConnection) User() string {
@@ -29,28 +29,28 @@ func (a *AWSSSMConnection) User() string {
 
 func (a *AWSSSMConnection) Connect() error {
 	// Specify the AWS region
-	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(a.region))
+	cfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(a.Region))
 	if err != nil {
 		return err
 	}
 
 	// Create an SSM client
-	ssmClient := ssm.NewFromConfig(cfg)
+	client := ssm.NewFromConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("ssm: error creating AWS session: %v", err)
 	}
 
 	startSessionInput := &ssm.StartSessionInput{
-		Target: aws.String(a.instanceId),
+		Target: aws.String(a.InstanceId),
 	}
 
-	startSessionOutput, err := ssmClient.StartSession(context.Background(), startSessionInput)
+	startSessionOutput, err := client.StartSession(context.Background(), startSessionInput)
 	if err != nil {
 		return fmt.Errorf("ssm: error starting session: %v", err)
 	}
 
-	a.ssmClient = ssmClient
-	a.sessionId = startSessionOutput.SessionId
+	a.Client = client
+	a.SessionId = startSessionOutput.SessionId
 
 	return nil
 }
@@ -58,10 +58,10 @@ func (a *AWSSSMConnection) Connect() error {
 func (a *AWSSSMConnection) Disconnect() error {
 	// Disconnect from the session
 	terminateSessionInput := &ssm.TerminateSessionInput{
-		SessionId: a.sessionId,
+		SessionId: a.SessionId,
 	}
 
-	_, err := a.ssmClient.TerminateSession(context.Background(), terminateSessionInput)
+	_, err := a.Client.TerminateSession(context.Background(), terminateSessionInput)
 	if err != nil {
 		return fmt.Errorf("ssm: error terminating session: %v", err)
 	}
@@ -74,13 +74,13 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	command := strings.Join(cmdLine, " ")
 	runCommandInput := &ssm.SendCommandInput{
 		DocumentName: aws.String("AWS-RunShellScript"),
-		InstanceIds:  []string{a.instanceId},
+		InstanceIds:  []string{a.InstanceId},
 		Parameters: map[string][]string{
 			"commands": {command},
 		},
 	}
 
-	runCommandOutput, err := a.ssmClient.SendCommand(context.Background(), runCommandInput)
+	runCommandOutput, err := a.Client.SendCommand(context.Background(), runCommandInput)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
@@ -89,16 +89,16 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 
 	commandInvocationInput := &ssm.GetCommandInvocationInput{
 		CommandId:  commandId,
-		InstanceId: aws.String(a.instanceId),
+		InstanceId: aws.String(a.InstanceId),
 	}
 
-	waiter := ssm.NewCommandExecutedWaiter(a.ssmClient)
+	waiter := ssm.NewCommandExecutedWaiter(a.Client)
 	_, err = waiter.WaitForOutput(context.Background(), commandInvocationInput, time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
 
-	getCommandOutput, err := a.ssmClient.GetCommandInvocation(context.Background(), commandInvocationInput)
+	getCommandOutput, err := a.Client.GetCommandInvocation(context.Background(), commandInvocationInput)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}

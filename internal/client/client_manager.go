@@ -40,8 +40,8 @@ func (c ClientManager) connection(typeName string, settings map[string]string) (
 		}, nil
 	case "aws-ssm":
 		return &AWSSSMConnection{
-			instanceId: settings["instance_id"],
-			region:     settings["region"],
+			InstanceId: settings["instance_id"],
+			Region:     settings["region"],
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown AEM client type: %s", typeName)
