@@ -6,5 +6,5 @@ type Connection interface {
 	Connect() error
 	Disconnect() error
 	Command(cmdLine []string) ([]byte, error)
-	CopyFile(sudo bool, localPath string, remotePath string) error
+	CopyFile(localPath string, remotePath string) error
 }

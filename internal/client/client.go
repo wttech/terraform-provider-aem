@@ -206,7 +206,7 @@ func (c Client) FileCopy(localPath string, remotePath string, override bool) err
 		return err
 	}
 	defer func() { _ = c.PathDelete(remoteTmpPath) }()
-	if err := c.connection.CopyFile(c.Sudo, localPath, remoteTmpPath); err != nil {
+	if err := c.connection.CopyFile(localPath, remoteTmpPath); err != nil {
 		return err
 	}
 	if err := c.FileMove(remoteTmpPath, remotePath); err != nil {
