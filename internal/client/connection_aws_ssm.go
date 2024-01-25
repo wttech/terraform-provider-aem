@@ -25,7 +25,8 @@ func (a *AWSSSMConnection) Info() string {
 }
 
 func (a *AWSSSMConnection) User() string {
-	return "root"
+	out, _ := a.Command([]string{"whoami"})
+	return strings.TrimSpace(string(out))
 }
 
 func (a *AWSSSMConnection) Connect() error {
@@ -108,7 +109,6 @@ func (a *AWSSSMConnection) CopyFile(localPath string, remotePath string) error {
 	encodedContent := base64.StdEncoding.EncodeToString(fileContent)
 
 	cmd := fmt.Sprintf("echo -n %s | base64 -d > %s", encodedContent, remotePath)
-	cmdLine := []string{"sh", "-c", "\"" + cmd + "\""}
-	_, err = a.Command(cmdLine)
+	_, err = a.Command([]string{cmd})
 	return err
 }
