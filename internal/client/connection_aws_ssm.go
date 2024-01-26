@@ -13,16 +13,20 @@ import (
 )
 
 type AWSSSMConnection struct {
-	InstanceID string
-	Region     string
-
-	client    *ssm.Client
-	sessionId *string
-	context   context.Context
+	instanceID    string
+	region        string
+	outputTimeout time.Duration
+	client        *ssm.Client
+	sessionId     *string
+	context       context.Context
 }
 
 func (a *AWSSSMConnection) Info() string {
-	return fmt.Sprintf("ssm: instance_id='%s', region='%s'", a.InstanceID, a.Region)
+	region := a.region
+	if region == "" {
+		region = "<default>"
+	}
+	return fmt.Sprintf("ssm: instance_id='%s', region='%s'", a.instanceID, region)
 }
 
 func (a *AWSSSMConnection) User() string {
@@ -34,9 +38,13 @@ func (a *AWSSSMConnection) User() string {
 }
 
 func (a *AWSSSMConnection) Connect() error {
+	if a.outputTimeout == 0 {
+		a.outputTimeout = time.Hour
+	}
+
 	var optFns []func(*config.LoadOptions) error
-	if a.Region != "" {
-		optFns = append(optFns, config.WithRegion(a.Region))
+	if a.region != "" {
+		optFns = append(optFns, config.WithRegion(a.region))
 	}
 
 	cfg, err := config.LoadDefaultConfig(a.context, optFns...)
@@ -45,7 +53,7 @@ func (a *AWSSSMConnection) Connect() error {
 	}
 
 	client := ssm.NewFromConfig(cfg)
-	startSessionInput := &ssm.StartSessionInput{Target: aws.String(a.InstanceID)}
+	startSessionInput := &ssm.StartSessionInput{Target: aws.String(a.instanceID)}
 
 	startSessionOutput, err := client.StartSession(a.context, startSessionInput)
 	if err != nil {
@@ -74,7 +82,7 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	command := strings.Join(cmdLine, " ")
 	runCommandInput := &ssm.SendCommandInput{
 		DocumentName: aws.String("AWS-RunShellScript"),
-		InstanceIds:  []string{a.InstanceID},
+		InstanceIds:  []string{a.instanceID},
 		Parameters: map[string][]string{
 			"commands": {command},
 		},
@@ -87,10 +95,10 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 	commandId := runOut.Command.CommandId
 	invocationIn := &ssm.GetCommandInvocationInput{
 		CommandId:  commandId,
-		InstanceId: aws.String(a.InstanceID),
+		InstanceId: aws.String(a.instanceID),
 	}
 	waiter := ssm.NewCommandExecutedWaiter(a.client)
-	_, err = waiter.WaitForOutput(a.context, invocationIn, time.Hour)
+	_, err = waiter.WaitForOutput(a.context, invocationIn, a.outputTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
