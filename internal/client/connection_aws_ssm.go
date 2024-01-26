@@ -15,10 +15,10 @@ import (
 type AWSSSMConnection struct {
 	InstanceID string
 	Region     string
-	Client     *ssm.Client
-	SessionId  *string
 
-	context context.Context
+	client    *ssm.Client
+	sessionId *string
+	context   context.Context
 }
 
 func (a *AWSSSMConnection) Info() string {
@@ -52,17 +52,17 @@ func (a *AWSSSMConnection) Connect() error {
 		return fmt.Errorf("ssm: error starting session: %v", err)
 	}
 
-	a.Client = client
-	a.SessionId = startSessionOutput.SessionId
+	a.client = client
+	a.sessionId = startSessionOutput.SessionId
 
 	return nil
 }
 
 func (a *AWSSSMConnection) Disconnect() error {
 	// Disconnect from the session
-	terminateSessionInput := &ssm.TerminateSessionInput{SessionId: a.SessionId}
+	terminateSessionInput := &ssm.TerminateSessionInput{SessionId: a.sessionId}
 
-	_, err := a.Client.TerminateSession(a.context, terminateSessionInput)
+	_, err := a.client.TerminateSession(a.context, terminateSessionInput)
 	if err != nil {
 		return fmt.Errorf("ssm: error terminating session: %v", err)
 	}
@@ -79,7 +79,7 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 			"commands": {command},
 		},
 	}
-	runOut, err := a.Client.SendCommand(a.context, runCommandInput)
+	runOut, err := a.client.SendCommand(a.context, runCommandInput)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
@@ -89,13 +89,13 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 		CommandId:  commandId,
 		InstanceId: aws.String(a.InstanceID),
 	}
-	waiter := ssm.NewCommandExecutedWaiter(a.Client)
+	waiter := ssm.NewCommandExecutedWaiter(a.client)
 	_, err = waiter.WaitForOutput(a.context, invocationIn, time.Hour)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
 
-	invocationOut, err := a.Client.GetCommandInvocation(a.context, invocationIn)
+	invocationOut, err := a.client.GetCommandInvocation(a.context, invocationIn)
 	if err != nil {
 		return nil, fmt.Errorf("ssm: error executing command: %v", err)
 	}
