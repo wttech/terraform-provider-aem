@@ -190,7 +190,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						MarkdownDescription: "Version of AEM Compose tool to use on remote machine.",
 						Computed:            true,
 						Optional:            true,
-						Default:             stringdefault.StaticString("1.5.9"),
+						Default:             stringdefault.StaticString("1.6.12"),
 					},
 					"config": schema.StringAttribute{
 						MarkdownDescription: "Contents o f the AEM Compose YML configuration file.",

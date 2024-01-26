@@ -85,6 +85,10 @@ For example:
 - `sh develop.sh examples/aws_ssh apply -auto-approve`
 - `sh develop.sh examples/aws_ssh destroy -auto-approve`
 
+- `sh develop.sh examples/aws_ssm plan`
+- `sh develop.sh examples/aws_ssm apply -auto-approve`
+- `sh develop.sh examples/aws_ssm destroy -auto-approve`
+
 ## Debugging the Provider
 
 1. Run command `go run . -debug` from IDEA in debug mode and copy the value of `TF_REATTACH_PROVIDERS` from the output.
