@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"github.com/spf13/cast"
 )
@@ -42,6 +43,8 @@ func (c ClientManager) connection(typeName string, settings map[string]string) (
 		return &AWSSSMConnection{
 			InstanceID: settings["instance_id"],
 			Region:     settings["region"],
+
+			context: context.Background(),
 		}, nil
 	}
 	return nil, fmt.Errorf("unknown AEM client type: %s", typeName)
