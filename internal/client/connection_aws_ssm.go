@@ -16,6 +16,8 @@ type AWSSSMConnection struct {
 	instanceID    string
 	region        string
 	outputTimeout time.Duration
+	minWaitDelay  time.Duration
+	maxWaitDelay  time.Duration
 	client        *ssm.Client
 	sessionId     *string
 	context       context.Context
@@ -39,7 +41,13 @@ func (a *AWSSSMConnection) User() string {
 
 func (a *AWSSSMConnection) Connect() error {
 	if a.outputTimeout == 0 {
-		a.outputTimeout = time.Hour
+		a.outputTimeout = 5 * time.Hour
+	}
+	if a.minWaitDelay == 0 {
+		a.minWaitDelay = 5 * time.Millisecond
+	}
+	if a.maxWaitDelay == 0 {
+		a.maxWaitDelay = 5 * time.Second
 	}
 
 	var optFns []func(*config.LoadOptions) error
@@ -97,15 +105,19 @@ func (a *AWSSSMConnection) Command(cmdLine []string) ([]byte, error) {
 		CommandId:  commandId,
 		InstanceId: aws.String(a.instanceID),
 	}
-	waiter := ssm.NewCommandExecutedWaiter(a.client)
-	_, err = waiter.WaitForOutput(a.context, invocationIn, a.outputTimeout)
+	optFns := []func(opt *ssm.CommandExecutedWaiterOptions){func(opt *ssm.CommandExecutedWaiterOptions) {
+		opt.MinDelay = a.minWaitDelay
+		opt.MaxDelay = a.maxWaitDelay
+	}}
+	waiter := ssm.NewCommandExecutedWaiter(a.client, optFns...)
+	invocationOut, err := waiter.WaitForOutput(a.context, invocationIn, a.outputTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("ssm: error executing command: %v", err)
-	}
-
-	invocationOut, err := a.client.GetCommandInvocation(a.context, invocationIn)
-	if err != nil {
-		return nil, fmt.Errorf("ssm: error executing command: %v", err)
+		invocationOut, err = a.client.GetCommandInvocation(a.context, invocationIn)
+		if invocationOut != nil {
+			return nil, fmt.Errorf("ssm: error executing command: %v", *invocationOut.StandardErrorContent)
+		} else if err != nil {
+			return nil, fmt.Errorf("ssm: error executing command: %v", err)
+		}
 	}
 
 	return []byte(*invocationOut.StandardOutputContent), nil

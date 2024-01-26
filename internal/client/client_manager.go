@@ -44,6 +44,8 @@ func (c ClientManager) connection(typeName string, settings map[string]string) (
 			instanceID:    settings["instance_id"],
 			region:        settings["region"],
 			outputTimeout: cast.ToDuration(settings["output_timeout"]),
+			minWaitDelay:  cast.ToDuration(settings["min_wait_delay"]),
+			maxWaitDelay:  cast.ToDuration(settings["max_wait_delay"]),
 			context:       context.Background(),
 		}, nil
 	}
