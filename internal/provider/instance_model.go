@@ -22,9 +22,11 @@ import (
 
 type InstanceResourceModel struct {
 	Client struct {
-		Type        types.String `tfsdk:"type"`
-		Settings    types.Map    `tfsdk:"settings"`
-		Credentials types.Map    `tfsdk:"credentials"`
+		Type          types.String `tfsdk:"type"`
+		Settings      types.Map    `tfsdk:"settings"`
+		Credentials   types.Map    `tfsdk:"credentials"`
+		ActionTimeout types.String `tfsdk:"action_timeout"`
+		StateTimeout  types.String `tfsdk:"state_timeout"`
 	} `tfsdk:"client"`
 	Files  types.Map `tfsdk:"files"`
 	System struct {
@@ -121,6 +123,18 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						ElementType:         types.StringType,
 						Optional:            true,
 						Sensitive:           true,
+					},
+					"action_timeout": schema.StringAttribute{
+						MarkdownDescription: "Used when trying to connect to the AEM instance machine (often right after creating it). Need to be enough long because various types of connections (like AWS SSM or SSH) may need some time to boot up the agent.",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("10m"),
+					},
+					"state_timeout": schema.StringAttribute{
+						MarkdownDescription: "Used when reading the AEM instance state when determining the plan.",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("30s"),
 					},
 				},
 			},
