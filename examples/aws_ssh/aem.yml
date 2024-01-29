@@ -255,4 +255,4 @@ output:
     # File path of logs written especially when output format is different than 'text'
     file: aem/home/var/log/aem.log
     # Controls where outputs and logs should be written to when format is 'text' (console|file|both)
-    mode: console
+    mode: both
