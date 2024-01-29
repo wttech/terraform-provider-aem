@@ -58,7 +58,7 @@ Optional:
 
 Optional:
 
-- `config` (String) Contents o f the AEM Compose YML configuration file.
+- `config` (String) Contents of the AEM Compose YML configuration file.
 - `configure` (Attributes) Script(s) for configuring a launched instance. Must be idempotent as it is executed always when changed. Typically used for installing AEM service packs, setting up replication agents, etc. (see [below for nested schema](#nestedatt--compose--configure))
 - `create` (Attributes) Script(s) for creating an instance or restoring it from a backup. Typically customized to provide AEM library files (quickstart.jar, license.properties, service packs) from alternative sources (e.g., AWS S3, Azure Blob Storage). Instance recreation is forced if changed. (see [below for nested schema](#nestedatt--compose--create))
 - `delete` (Attributes) Script(s) for deleting a stopped instance. (see [below for nested schema](#nestedatt--compose--delete))

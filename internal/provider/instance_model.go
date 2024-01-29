@@ -207,7 +207,7 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Default:             stringdefault.StaticString("1.6.12"),
 					},
 					"config": schema.StringAttribute{
-						MarkdownDescription: "Contents o f the AEM Compose YML configuration file.",
+						MarkdownDescription: "Contents of the AEM Compose YML configuration file.",
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString(instance.ConfigYML),
