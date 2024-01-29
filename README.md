@@ -31,11 +31,19 @@ The main purpose of this provider is to enable users to:
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
 - [Go](https://golang.org/doc/install) >= 1.19
 
+## Using The Provider
+
+The easiest way to get started is to review, copy and adapt provided examples:
+
+1. [AWS EC2 instance with private IP](https://github.com/wttech/terraform-provider-aem/tree/main/examples/aws_ssm)
+2. [AWS EC2 instance with public IP](https://github.com/wttech/terraform-provider-aem/tree/main/examples/aws_ssh)
+3. [Bare metal machine](https://github.com/wttech/terraform-provider-aem/tree/main/examples/bare_metal_ssh)
+
 ## Building The Provider
 
 1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the Go `install` command:
+2. Enter the repository directory
+3. Build the provider using the Go `install` command:
 
 ```shell
 go install
