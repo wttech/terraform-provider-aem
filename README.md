@@ -26,12 +26,7 @@ The main purpose of this provider is to enable users to:
 - Seamless integration with Terraform for infrastructure provisioning
 - Based on the powerful [AEM Compose](https://github.com/wttech/aemc) tool
 
-## Requirements
-
-- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
-- [Go](https://golang.org/doc/install) >= 1.19
-
-## Using The Provider
+## Quickstart
 
 The easiest way to get started is to review, copy and adapt provided examples:
 
@@ -39,7 +34,16 @@ The easiest way to get started is to review, copy and adapt provided examples:
 2. [AWS EC2 instance with public IP](https://github.com/wttech/terraform-provider-aem/tree/main/examples/aws_ssh)
 3. [Bare metal machine](https://github.com/wttech/terraform-provider-aem/tree/main/examples/bare_metal_ssh)
 
-## Building The Provider
+- - -
+
+## Development
+
+### Requirements
+
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
+- [Go](https://golang.org/doc/install) >= 1.19
+
+### Building The Provider
 
 1. Clone the repository
 2. Enter the repository directory
@@ -49,7 +53,7 @@ The easiest way to get started is to review, copy and adapt provided examples:
 go install
 ```
 
-## Adding Dependencies
+### Adding Dependencies
 
 This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
 Please see the Go documentation for the most up to date information about using Go modules.
@@ -63,11 +67,11 @@ go mod tidy
 
 Then commit the changes to `go.mod` and `go.sum`.
 
-## Troubleshooting the provider
+### Troubleshooting the provider
 
 Before running any Terraform command simply set the environment variable `TF_LOG=INFO` (or ultimately `TF_LOG=DEBUG`) to see detailed logs about progress of the setting up the AEM instances.
 
-## Developing the Provider
+### Developing the Provider
 
 If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
 
@@ -83,7 +87,7 @@ In order to run the full suite of Acceptance tests, run `make testacc`.
 make testacc
 ```
 
-## Testing the Provider using examples
+### Testing the Provider using examples
 
 Run command: `sh develop.sh <example_path> <tf_args>`.
 
@@ -97,7 +101,7 @@ For example:
 - `sh develop.sh examples/aws_ssm apply -auto-approve`
 - `sh develop.sh examples/aws_ssm destroy -auto-approve`
 
-## Debugging the Provider
+### Debugging the Provider
 
 1. Run command `go run . -debug` from IDEA in debug mode and copy the value of `TF_REATTACH_PROVIDERS` from the output.
 2. Set up breakpoint in the code.
