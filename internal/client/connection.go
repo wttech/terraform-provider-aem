@@ -1,14 +1,10 @@
 package client
 
-import (
-	"github.com/melbahja/goph"
-)
-
 type Connection interface {
 	Info() string
 	User() string
 	Connect() error
 	Disconnect() error
-	Command(cmdLine []string) (*goph.Cmd, error)
+	Command(cmdLine []string) ([]byte, error)
 	CopyFile(localPath string, remotePath string) error
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/spf13/cast"
 	"github.com/wttech/terraform-provider-aem/internal/client"
 	"golang.org/x/exp/maps"
 	"time"
@@ -66,7 +67,7 @@ func (r *InstanceResource) createOrUpdate(ctx context.Context, plan *tfsdk.Plan,
 
 	tflog.Info(ctx, "Started setting up AEM instance resource")
 
-	ic, err := r.client(ctx, plannedModel, time.Minute*5)
+	ic, err := r.client(ctx, plannedModel, cast.ToDuration(plannedModel.Client.ActionTimeout.ValueString()))
 	if err != nil {
 		diags.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 		return
@@ -138,7 +139,7 @@ func (r *InstanceResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	ic, err := r.client(ctx, model, time.Second*15)
+	ic, err := r.client(ctx, model, cast.ToDuration(model.Client.StateTimeout.ValueString()))
 	if err != nil {
 		tflog.Info(ctx, "Cannot read AEM instance state as it is not possible to connect	 at the moment. Possible reasons: machine IP change is in progress, machine is not yet created or booting up, etc.")
 	} else {
@@ -173,7 +174,7 @@ func (r *InstanceResource) Delete(ctx context.Context, req resource.DeleteReques
 
 	tflog.Info(ctx, "Started deleting AEM instance resource")
 
-	ic, err := r.client(ctx, model, time.Minute*5)
+	ic, err := r.client(ctx, model, cast.ToDuration(model.Client.StateTimeout.ValueString()))
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to connect to AEM instance", fmt.Sprintf("%s", err))
 		return

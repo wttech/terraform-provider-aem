@@ -18,9 +18,6 @@ locals {
   env_type  = "aem-single"
   host      = "aem_single"
 
-  ssh_user        = "ec2-user"
-  ssh_private_key = abspath("ec2-key.cer")
-
   tags = {
     Workspace = "aemc"
     Env       = "tf-minimal"

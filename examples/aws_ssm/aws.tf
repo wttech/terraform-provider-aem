@@ -3,6 +3,11 @@ resource "aws_instance" "aem_single" {
   instance_type        = "m5.xlarge"
   iam_instance_profile = aws_iam_instance_profile.aem_ec2.name
   tags                 = local.tags
+  user_data = trimspace(<<EOF
+#!/bin/bash
+sudo dnf install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+  EOF
+  )
 }
 
 resource "aws_ebs_volume" "aem_single_data" {
@@ -25,7 +30,7 @@ resource "aws_iam_instance_profile" "aem_ec2" {
 }
 
 resource "aws_iam_role" "aem_ec2" {
-  name               = "${local.workspace}_aem_ec2"
+  name = "${local.workspace}_aem_ec2"
   assume_role_policy = trimspace(<<EOF
   {
     "Version": "2012-10-17",
@@ -37,7 +42,7 @@ resource "aws_iam_role" "aem_ec2" {
   }
   EOF
   )
-  tags               = local.tags
+  tags = local.tags
 }
 
 resource "aws_iam_role_policy_attachment" "ssm" {

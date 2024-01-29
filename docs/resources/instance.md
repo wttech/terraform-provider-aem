@@ -48,7 +48,9 @@ Required:
 
 Optional:
 
+- `action_timeout` (String) Used when trying to connect to the AEM instance machine (often right after creating it). Need to be enough long because various types of connections (like AWS SSM or SSH) may need some time to boot up the agent.
 - `credentials` (Map of String, Sensitive) Credentials for the connection type
+- `state_timeout` (String) Used when reading the AEM instance state when determining the plan.
 
 
 <a id="nestedblock--compose"></a>
