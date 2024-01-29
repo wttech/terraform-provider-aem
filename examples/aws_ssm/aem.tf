@@ -1,7 +1,7 @@
 resource "aem_instance" "single" {
   depends_on = [aws_instance.aem_single, aws_volume_attachment.aem_single_data]
 
-  client {
+  client { // see available options: https://github.com/wttech/terraform-provider-aem/blob/main/internal/client/client_manager.go
     type = "aws-ssm"
     settings = {
       instance_id = aws_instance.aem_single.id
