@@ -106,6 +106,10 @@ func (ic *InstanceClient) saveProfileScript() error {
 }
 
 func (ic *InstanceClient) configureService() error {
+	if ic.data.Client.Type.ValueString() == "local" {
+		return nil
+	}
+
 	user := ic.data.System.User.ValueString()
 	if user == "" {
 		user = ic.cl.Connection().User()
@@ -134,6 +138,10 @@ func (ic *InstanceClient) configureService() error {
 }
 
 func (ic *InstanceClient) runServiceAction(action string) error {
+	if ic.data.Client.Type.ValueString() == "local" {
+		return nil
+	}
+
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()
 
