@@ -6,9 +6,10 @@ resource "aem_instance" "single" {
   }
 
   system {
-    data_dir  = local.compose_dir
-    work_dir  = local.work_dir
-    bootstrap = {
+    data_dir        = local.compose_dir
+    work_dir        = local.work_dir
+    service_enabled = false
+    bootstrap       = {
       inline = [
       ]
     }

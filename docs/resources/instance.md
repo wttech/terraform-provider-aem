@@ -101,6 +101,7 @@ Optional:
 - `bootstrap` (Attributes) Script executed once upon instance connection, often for mounting on VM data volumes from attached disks (e.g., AWS EBS, Azure Disk Storage). This script runs only once, even during instance recreation, as changes are typically persistent and system-wide. If re-execution is needed, it is recommended to set up a new machine. (see [below for nested schema](#nestedatt--system--bootstrap))
 - `data_dir` (String) Remote root path in which AEM Compose files and unpacked AEM instances will be stored.
 - `env` (Map of String) Environment variables for AEM instances.
+- `service_enabled` (Boolean) Enabled the AEM system service (systemd).
 - `service_config` (String) Contents of the AEM system service definition file (systemd).
 - `user` (String) System user under which AEM instance will be running. By default, the same as the user used to connect to the machine.
 - `work_dir` (String) Remote root path where provider-related files will be stored.

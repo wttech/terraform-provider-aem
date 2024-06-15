@@ -106,7 +106,7 @@ func (ic *InstanceClient) saveProfileScript() error {
 }
 
 func (ic *InstanceClient) configureService() error {
-	if ic.data.Client.Type.ValueString() == "local" {
+	if !ic.data.System.ServiceEnabled.ValueBool() || ic.data.Client.Type.ValueString() == "local" {
 		return nil
 	}
 
@@ -138,7 +138,7 @@ func (ic *InstanceClient) configureService() error {
 }
 
 func (ic *InstanceClient) runServiceAction(action string) error {
-	if ic.data.Client.Type.ValueString() == "local" {
+	if !ic.data.System.ServiceEnabled.ValueBool() || ic.data.Client.Type.ValueString() == "local" {
 		return nil
 	}
 
