@@ -34,6 +34,7 @@ type InstanceResourceModel struct {
 		WorkDir        types.String   `tfsdk:"work_dir"`
 		Env            types.Map      `tfsdk:"env"`
 		ServiceEnabled types.Bool     `tfsdk:"service_enabled"`
+		ServiceName    types.String   `tfsdk:"service_name"`
 		ServiceConfig  types.String   `tfsdk:"service_config"`
 		User           types.String   `tfsdk:"user"`
 		Bootstrap      InstanceScript `tfsdk:"bootstrap"`
@@ -175,6 +176,12 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Optional:            true,
 						Computed:            true,
 						Default:             booldefault.StaticBool(true),
+					},
+					"service_name": schema.StringAttribute{
+						MarkdownDescription: "Name of the AEM system service (systemd).",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(""),
 					},
 					"service_config": schema.StringAttribute{
 						MarkdownDescription: "Contents of the AEM system service definition file (systemd).",

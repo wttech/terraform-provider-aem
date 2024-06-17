@@ -86,8 +86,15 @@ func (ic *InstanceClient) create() error {
 	return nil
 }
 
+func (ic *InstanceClient) serviceName() string {
+	if ic.data.System.ServiceName.ValueString() != "" {
+		return ic.data.System.ServiceName.ValueString()
+	}
+	return ServiceName
+}
+
 func (ic *InstanceClient) saveProfileScript() error {
-	envFile := fmt.Sprintf("/etc/profile.d/%s.sh", ServiceName)
+	envFile := fmt.Sprintf("/etc/profile.d/%s.sh", ic.serviceName())
 
 	var systemEnvMap map[string]string
 	ic.data.System.Env.ElementsAs(ic.ctx, &systemEnvMap, true)
@@ -106,7 +113,7 @@ func (ic *InstanceClient) saveProfileScript() error {
 }
 
 func (ic *InstanceClient) configureService() error {
-	if !ic.data.System.ServiceEnabled.ValueBool() || ic.data.Client.Type.ValueString() == "local" {
+	if !ic.data.System.ServiceEnabled.ValueBool() {
 		return nil
 	}
 
@@ -126,7 +133,7 @@ func (ic *InstanceClient) configureService() error {
 	if err != nil {
 		return fmt.Errorf("unable to template AEM system service definition: %w", err)
 	}
-	serviceFile := fmt.Sprintf("/etc/systemd/system/%s.service", ServiceName)
+	serviceFile := fmt.Sprintf("/etc/systemd/system/%s.service", ic.serviceName())
 	if err := ic.cl.FileWrite(serviceFile, serviceTemplated); err != nil {
 		return fmt.Errorf("unable to write AEM system service definition '%s': %w", serviceFile, err)
 	}
@@ -138,14 +145,14 @@ func (ic *InstanceClient) configureService() error {
 }
 
 func (ic *InstanceClient) runServiceAction(action string) error {
-	if !ic.data.System.ServiceEnabled.ValueBool() || ic.data.Client.Type.ValueString() == "local" {
+	if !ic.data.System.ServiceEnabled.ValueBool() {
 		return nil
 	}
 
 	ic.cl.Sudo = true
 	defer func() { ic.cl.Sudo = false }()
 
-	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ServiceName), ".")
+	outBytes, err := ic.cl.RunShellCommand(fmt.Sprintf("systemctl %s %s.service", action, ic.serviceName()), ".")
 	if err != nil {
 		return fmt.Errorf("unable to perform AEM system service action '%s': %w", action, err)
 	}
