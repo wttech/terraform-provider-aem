@@ -10,6 +10,10 @@ It's based on the [AEM Compose](https://github.com/wttech/aemc) tool and aims to
 
 Published in [Terraform Registry](https://registry.terraform.io/providers/wttech/aem/latest/docs).
 
+# References
+
+* Talk at AdaptTo 2024 Conference - [First-ever IaC Providers for AEM](https://adapt.to/2024/schedule/lightning-talks/first-ever-iaac-providers-for-aem) by [Krystian Panek](mailto:krystian.panek@wundermanthompson.com)
+
 ## Purpose
 
 The main purpose of this provider is to enable users to:
