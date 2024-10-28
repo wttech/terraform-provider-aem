@@ -26,6 +26,55 @@ The main purpose of this provider is to enable users to:
 - Seamless integration with Terraform for infrastructure provisioning
 - Based on the powerful [AEM Compose](https://github.com/wttech/aemc) tool
 
+## Overview
+
+Provides an AEM instance resource to set up one or more AEM instances on virtual machines in the cloud or bare metal machines.
+Below configuration is a generic example of how to use the provider:
+
+```hcl
+resource "aem_instance" "single" {
+  depends_on = [] // for example: [aws_instance.aem_single, aws_volume_attachment.aem_single_data]
+
+  // see available connection types: https://github.com/wttech/terraform-provider-aem/blob/main/internal/client/client_manager.go
+  client { 
+    type = "<type>"  // 'aws-ssm' or 'ssh'
+    settings = {
+      // type-specific values goes here
+    }
+    credentials = {
+      // type-specific values goes here
+    }
+  }
+
+  system {
+    bootstrap = {
+      inline = [
+        // commands to execute only once on the machine (not idempotent)
+      ]
+    }
+  }
+
+  compose {
+    create = {
+      inline = [
+        // commands to execute before launching AEM instances (idempotent)
+        // for downloading AEM files, etc.
+      ]
+    }
+    configure = {
+      inline = [
+        // commands to execute after launching AEM instances (idempotent)
+        // for provisioning AEM instances: setting replication agents, installing packages, etc.
+      ]
+    }
+  }
+}
+
+output "aem_instances" {
+  value = aem_instance.single.instances
+}
+```
+
 ## Quickstart
 
 The easiest way to get started is to review, copy and adapt provided examples:
