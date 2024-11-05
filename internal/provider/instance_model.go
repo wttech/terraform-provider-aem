@@ -30,12 +30,14 @@ type InstanceResourceModel struct {
 	} `tfsdk:"client"`
 	Files  types.Map `tfsdk:"files"`
 	System struct {
-		DataDir       types.String   `tfsdk:"data_dir"`
-		WorkDir       types.String   `tfsdk:"work_dir"`
-		Env           types.Map      `tfsdk:"env"`
-		ServiceConfig types.String   `tfsdk:"service_config"`
-		User          types.String   `tfsdk:"user"`
-		Bootstrap     InstanceScript `tfsdk:"bootstrap"`
+		DataDir        types.String   `tfsdk:"data_dir"`
+		WorkDir        types.String   `tfsdk:"work_dir"`
+		Env            types.Map      `tfsdk:"env"`
+		ServiceEnabled types.Bool     `tfsdk:"service_enabled"`
+		ServiceName    types.String   `tfsdk:"service_name"`
+		ServiceConfig  types.String   `tfsdk:"service_config"`
+		User           types.String   `tfsdk:"user"`
+		Bootstrap      InstanceScript `tfsdk:"bootstrap"`
 	} `tfsdk:"system"`
 	Compose struct {
 		Download  types.Bool     `tfsdk:"download"`
@@ -168,6 +170,18 @@ func (r *InstanceResource) Schema(ctx context.Context, req resource.SchemaReques
 						Computed:            true,
 						Optional:            true,
 						Default:             stringdefault.StaticString("/tmp/aemc"),
+					},
+					"service_enabled": schema.BoolAttribute{
+						MarkdownDescription: "Enabled the AEM system service (systemd).",
+						Optional:            true,
+						Computed:            true,
+						Default:             booldefault.StaticBool(true),
+					},
+					"service_name": schema.StringAttribute{
+						MarkdownDescription: "Name of the AEM system service (systemd).",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString(""),
 					},
 					"service_config": schema.StringAttribute{
 						MarkdownDescription: "Contents of the AEM system service definition file (systemd).",
