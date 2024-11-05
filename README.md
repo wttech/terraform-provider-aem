@@ -10,6 +10,10 @@ It's based on the [AEM Compose](https://github.com/wttech/aemc) tool and aims to
 
 Published in [Terraform Registry](https://registry.terraform.io/providers/wttech/aem/latest/docs).
 
+# References
+
+* Talk at AdaptTo 2024 Conference - [First-ever IaC Providers for AEM](https://adapt.to/2024/schedule/lightning-talks/first-ever-iaac-providers-for-aem) by [Krystian Panek](mailto:krystian.panek@vml.com)
+
 ## Purpose
 
 The main purpose of this provider is to enable users to:
@@ -25,6 +29,55 @@ The main purpose of this provider is to enable users to:
 - Support for multiple cloud platforms and bare metal machines
 - Seamless integration with Terraform for infrastructure provisioning
 - Based on the powerful [AEM Compose](https://github.com/wttech/aemc) tool
+
+## Overview
+
+Provides an AEM instance resource to set up one or more AEM instances on virtual machines in the cloud or bare metal machines.
+Below configuration is a generic example of how to use the provider:
+
+```hcl
+resource "aem_instance" "single" {
+  depends_on = [] // for example: [aws_instance.aem_single, aws_volume_attachment.aem_single_data]
+
+  // see available connection types: https://github.com/wttech/terraform-provider-aem/blob/main/internal/client/client_manager.go
+  client { 
+    type = "<type>"  // 'aws-ssm' or 'ssh'
+    settings = {
+      // type-specific values goes here
+    }
+    credentials = {
+      // type-specific values goes here
+    }
+  }
+
+  system {
+    bootstrap = {
+      inline = [
+        // commands to execute only once on the machine (not idempotent)
+      ]
+    }
+  }
+
+  compose {
+    create = {
+      inline = [
+        // commands to execute before launching AEM instances (idempotent)
+        // for downloading AEM files, etc.
+      ]
+    }
+    configure = {
+      inline = [
+        // commands to execute after launching AEM instances (idempotent)
+        // for provisioning AEM instances: setting replication agents, installing packages, etc.
+      ]
+    }
+  }
+}
+
+output "aem_instances" {
+  value = aem_instance.single.instances
+}
+```
 
 ## Quickstart
 
