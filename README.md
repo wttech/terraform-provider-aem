@@ -8,16 +8,16 @@ Terraform Provider · AWS · Azure · GCP
 </p>
 
 <p align="center">
-
-[![Apache License, Version 2.0, January 2004](docs/apache-license-badge.svg)](http://www.apache.org/licenses/)
+<a href="http://www.apache.org/licenses/"><img src="docs/apache-license-badge.svg" alt="Apache License, Version 2.0, January 2004"></a>
 <br>
 <sub>Proudly sponsored by:</sub>
 <br><br>
 <a href="https://enterprisesolutions.wpp.com/" target="_blank">
 <picture><source srcset="docs/wpp-es-primary-white.svg" media="(prefers-color-scheme: dark)"><img src="docs/wpp-es-primary-navy.svg" alt="WPP Enterprise Solutions" height="20"></picture>
 </a>
-
 </p>
+
+---
 
 # AEM Compose - Terraform Provider
 
