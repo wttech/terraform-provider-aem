@@ -1,5 +1,5 @@
 ![AEM Compose Logo](docs/logo-with-text.png)
-[![WTT Logo](docs/wtt-logo.png)](https://www.wundermanthompson.com/service/technology)
+<a href="https://enterprisesolutions.wpp.com/" target="_blank"><picture><source srcset="docs/wpp-es-primary-white.svg" media="(prefers-color-scheme: dark)"><img src="docs/wpp-es-primary-navy.svg" alt="WPP Enterprise Solutions" height="100"></picture></a>
 
 [![Apache License, Version 2.0, January 2004](docs/apache-license-badge.svg)](http://www.apache.org/licenses/)
 
